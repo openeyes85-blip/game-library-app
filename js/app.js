@@ -11,16 +11,16 @@
   const LS_KEYS = {
     cleared: 'gl_cleared_v1',      // string[] of game.id
     favorites: 'gl_favorites_v1',  // string[] of game.id
-    state: 'gl_state_v1'           // {tab, category, listStatus, clearedStatus, sort:{list,cleared,fav}}
+    state: 'gl_state_v1'           // {tab, category, listStatus, sort:{list,fav}}
   };
 
   function loadSet(key){
     try{
       const raw = localStorage.getItem(key);
-      if(!raw) return new Set();
+      if(!raw) return null; // null = 저장된 적 없음 (최초 실행)
       const arr = JSON.parse(raw);
       return new Set(Array.isArray(arr) ? arr : []);
-    }catch(e){ return new Set(); }
+    }catch(e){ return null; }
   }
   function saveSet(key, set){
     try{ localStorage.setItem(key, JSON.stringify(Array.from(set))); }catch(e){}
@@ -30,9 +30,8 @@
       tab: 'list',
       category: 'all',
       listStatus: 'all',
-      clearedStatus: 'todo',
-      sort: { list:'number', cleared:'number', fav:'number' },
-      scroll: { list:0, categories:0, cleared:0, favorites:0 }
+      sort: { list:'number', fav:'number' },
+      scroll: { list:0, categories:0, favorites:0 }
     };
     try{
       const raw = localStorage.getItem(LS_KEYS.state);
@@ -50,6 +49,17 @@
 
   let cleared = loadSet(LS_KEYS.cleared);
   let favorites = loadSet(LS_KEYS.favorites);
+
+  // 최초 실행(저장된 기록이 전혀 없음)이면, 원본 Excel의 "엔딩" 완료 표시를
+  // 기본 클리어 상태로 미리 채워준다. 이후에는 사용자의 체크가 항상 우선한다.
+  if(cleared === null){
+    cleared = new Set(GAMES.filter(g => g.d0).map(g => g.id));
+    saveSet(LS_KEYS.cleared, cleared);
+  }
+  if(favorites === null){
+    favorites = new Set();
+    saveSet(LS_KEYS.favorites, favorites);
+  }
 
   const APP = { state: loadState() };
 
@@ -130,7 +140,7 @@
       .replace(/"/g,'&quot;');
   }
 
-  const CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  const CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="#0b1f14" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
   const STAR_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
   const STAR_OUTLINE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
 
@@ -249,7 +259,7 @@
       const active = c.key === selectedKey;
       const cnt = c.key==='all' ? GAMES.length : GAMES.filter(g=>g.category===c.key).length;
       return `<div class="chip ${active?'active':''}" data-cat="${c.key}" style="--cat-color:${c.color}">
-        <span class="dot" style="background:${active?'#fff':c.color}"></span>
+        <span class="dot"></span>
         <span>${escapeHtml(c.label)}</span>
         <span class="cnt">${cnt}</span>
       </div>`;
@@ -301,12 +311,12 @@
       const pct = c.total ? Math.round(c.done / c.total * 100) : 0;
       return `<button class="cat-card" data-cat="${cat.key}" style="--cat-color:${cat.color}">
         <div class="top-row">
-          <span class="dot" style="background:${cat.color}"></span>
+          <span class="dot"></span>
           <div class="name">${escapeHtml(cat.label)}</div>
         </div>
         <div class="stat"><span class="n">${c.total}</span><span class="of">개</span></div>
         <div class="of">${c.done} 클리어</div>
-        <div class="prog-track"><div class="prog-fill" style="width:${pct}%; background:${cat.color}"></div></div>
+        <div class="prog-track"><div class="prog-fill" style="width:${pct}%"></div></div>
       </button>`;
     }).join('');
     grid.querySelectorAll('.cat-card').forEach(card=>{
@@ -321,33 +331,7 @@
   }
 
   /* ---------------------------------------------------------
-     8. 화면: 클리어
-     --------------------------------------------------------- */
-  function renderClearedScreen(){
-    const container = document.getElementById('clearedContainer');
-    const emptyEl = document.getElementById('clearedEmpty');
-    const countEl = document.getElementById('clearedResultCount');
-
-    document.querySelectorAll('#segClearedStatus button').forEach(b=>{
-      b.classList.toggle('active', b.dataset.v === APP.state.clearedStatus);
-    });
-    document.getElementById('sortSelectCleared').value = APP.state.sort.cleared;
-
-    let list = filterByStatus(GAMES, APP.state.clearedStatus);
-    list = sortGames(list, APP.state.sort.cleared);
-    countEl.textContent = `${list.length}개`;
-
-    if(list.length === 0){
-      container.innerHTML = '';
-      emptyEl.classList.add('show');
-    }else{
-      emptyEl.classList.remove('show');
-      renderGroupedList(container, list, { grouped:true });
-    }
-  }
-
-  /* ---------------------------------------------------------
-     9. 화면: 즐겨찾기
+     8. 화면: 즐겨찾기
      --------------------------------------------------------- */
   function renderFavoritesScreen(){
     const container = document.getElementById('favContainer');
@@ -444,7 +428,7 @@
           <div class="t" title="${escapeHtml(g.title)}">${escapeHtml(g.title)}</div>
           <div class="actions">
             <button class="star ${fav?'active':''}" data-action="fav">${fav?STAR_SVG:STAR_OUTLINE_SVG}</button>
-            <button class="chk" data-action="check">${done?CHECK_SVG.replace('#fff','currentColor'):''}</button>
+            <button class="chk" data-action="check">${done?CHECK_SVG.replace('#0b1f14','currentColor'):''}</button>
           </div>
         </div>`;
       }).join('');
@@ -467,7 +451,7 @@
         toggleCleared(id);
         const done = isCleared(id);
         rowEl.classList.toggle('cleared', done);
-        btn.innerHTML = done ? CHECK_SVG.replace('#fff','currentColor') : '';
+        btn.innerHTML = done ? CHECK_SVG.replace('#0b1f14','currentColor') : '';
       }else if(btn.dataset.action === 'fav'){
         toggleFav(id);
         const fav = isFav(id);
@@ -487,7 +471,7 @@
   /* ---------------------------------------------------------
      12. 화면 전환
      --------------------------------------------------------- */
-  const SCREEN_IDS = ['list','categories','cleared','favorites','search'];
+  const SCREEN_IDS = ['list','categories','favorites','search'];
   function goToScreen(name, opts){
     opts = opts || {};
     SCREEN_IDS.forEach(id=>{
@@ -552,7 +536,6 @@
     switch(APP.state.tab){
       case 'list': renderListScreen(); break;
       case 'categories': renderCategoriesScreen(); break;
-      case 'cleared': renderClearedScreen(); break;
       case 'favorites': renderFavoritesScreen(); break;
     }
   }
@@ -571,25 +554,6 @@
     });
     bindRowDelegation(document.getElementById('listContainer'), ()=>{
       renderSummary();
-      renderCategoryGridSoft();
-    });
-  }
-
-  function initClearedControls(){
-    document.getElementById('segClearedStatus').addEventListener('click', e=>{
-      const b = e.target.closest('button'); if(!b) return;
-      APP.state.clearedStatus = b.dataset.v;
-      saveState();
-      renderClearedScreen();
-    });
-    document.getElementById('sortSelectCleared').addEventListener('change', e=>{
-      APP.state.sort.cleared = e.target.value;
-      saveState();
-      renderClearedScreen();
-    });
-    bindRowDelegation(document.getElementById('clearedContainer'), ()=>{
-      renderSummary();
-      renderClearedScreen();
       renderCategoryGridSoft();
     });
   }
@@ -799,7 +763,6 @@
     renderSummary();
     initNav();
     initListControls();
-    initClearedControls();
     initFavControls();
     initSearchControls();
     initPcControls();
