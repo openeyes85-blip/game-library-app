@@ -32,21 +32,21 @@ except ImportError:
 
 # 구분 코드 -> (내부 key, 화면 표시 라벨, 색상)
 CAT_META = {
-    'S2':  ('s2',        'Switch2',          '#c97272'),
-    'S2D': ('s2d',       'Switch2 DL',       '#c99572'),
-    1:     ('g1st',      '1st',              '#c9b872'),
-    2:     ('g2nd',      '2nd',              '#b8c972'),
-    3:     ('g3rd',      '3rd',              '#95c972'),
-    4:     ('g4th',      '4th',              '#72c972'),
-    5:     ('g5th',      '5th',              '#72c995'),
-    6:     ('g6th',      '6th',              '#72c9b8'),
-    7:     ('g7th',      '7th',              '#72b8c9'),
-    8:     ('action',    'Action&Arcade',    '#7295c9'),
-    9:     ('indie',     'Indie Action',     '#7272c9'),
-    10:    ('rpg',       'RPG&Simulation',   '#9572c9'),
-    11:    ('adventure', 'Adventure&Puzzle', '#b872c9'),
-    12:    ('minor',     'Minor&Etc.',       '#c972b8'),
-    13:    ('multi',     'Multi&Repeat',     '#c97295'),
+    'S2':  ('s2',        'Switch2',          '#e49494'),
+    'S2D': ('s2d',       'Switch2 DL',       '#e4b494'),
+    1:     ('g1st',      '1st',              '#e4d494'),
+    2:     ('g2nd',      '2nd',              '#d4e494'),
+    3:     ('g3rd',      '3rd',              '#b4e494'),
+    4:     ('g4th',      '4th',              '#94e494'),
+    5:     ('g5th',      '5th',              '#94e4b4'),
+    6:     ('g6th',      '6th',              '#94e4d4'),
+    7:     ('g7th',      '7th',              '#94d4e4'),
+    8:     ('action',    'Action&Arcade',    '#94b4e4'),
+    9:     ('indie',     'Indie Action',     '#9494e4'),
+    10:    ('rpg',       'RPG&Simulation',   '#b494e4'),
+    11:    ('adventure', 'Adventure&Puzzle', '#d494e4'),
+    12:    ('minor',     'Minor&Etc.',       '#e494d4'),
+    13:    ('multi',     'Multi&Repeat',     '#e494b4'),
 }
 
 CATEGORY_ORDER = ['S2','S2D',1,2,3,4,5,6,7,8,9,10,11,12,13]
