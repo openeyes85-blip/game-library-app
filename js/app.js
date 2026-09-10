@@ -237,8 +237,8 @@
     container.innerHTML = chips.map(c=>{
       const active = c.key === selectedKey;
       const cnt = c.key==='all' ? GAMES.length : GAMES.filter(g=>g.category===c.key).length;
-      return `<div class="chip ${active?'active':''}" data-cat="${c.key}" style="${active?`background:${c.color};`:''}">
-        <span class="dot" style="background:${active?'#fff':c.color}"></span>
+      return `<div class="chip ${active?'active':''}" data-cat="${c.key}">
+        <span class="dot" style="background:${active?'var(--accent)':c.color}"></span>
         <span>${escapeHtml(c.label)}</span>
         <span class="cnt">${cnt}</span>
       </div>`;
@@ -289,8 +289,10 @@
       const c = counts(list);
       const pct = c.total ? Math.round(c.done / c.total * 100) : 0;
       return `<button class="cat-card" data-cat="${cat.key}">
-        <span class="bar" style="background:${cat.color}"></span>
-        <div class="name">${escapeHtml(cat.label)}</div>
+        <div class="top-row">
+          <span class="dot" style="background:${cat.color}"></span>
+          <div class="name">${escapeHtml(cat.label)}</div>
+        </div>
         <div class="stat"><span class="n">${c.total}</span><span class="of">개</span></div>
         <div class="of">${c.done} 클리어</div>
         <div class="prog-track"><div class="prog-fill" style="width:${pct}%; background:${cat.color}"></div></div>
@@ -417,7 +419,7 @@
       const c = counts(GAMES.filter(g=>g.category===cat.key));
       const panel = el('div','pc-panel');
       panel.innerHTML = `
-        <div class="pc-panel-head" style="background:${cat.color}">
+        <div class="pc-panel-head" style="--cat-color:${cat.color}">
           <span class="name">${escapeHtml(cat.label)}</span>
           <span class="count">${c.done}/${c.total}</span>
         </div>
