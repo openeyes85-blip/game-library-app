@@ -180,6 +180,7 @@
          <span class="sub">${items.length}개</span>`);
       frag.appendChild(head);
       const wrap = el('div','row-list');
+      wrap.style.setProperty('--cat-color', cat.color);
       wrap.innerHTML = items.map(buildRowHTML).join('');
       frag.appendChild(wrap);
     });
@@ -222,10 +223,20 @@
      --------------------------------------------------------- */
   function renderSummary(){
     const c = counts(GAMES);
+    const pct = c.total ? Math.round(c.done / c.total * 100) : 0;
+
+    const ring = document.getElementById('heroRing');
+    if(ring){
+      ring.style.background = `conic-gradient(var(--accent) ${pct}%, var(--ring-track) 0)`;
+    }
+    const pctEl = document.getElementById('heroPct');
+    if(pctEl) pctEl.textContent = pct + '%';
+    const t = document.getElementById('statTotal'); if(t) t.textContent = c.total;
+    const d = document.getElementById('statDone'); if(d) d.textContent = c.done;
+    const td = document.getElementById('statTodo'); if(td) td.textContent = c.todo;
+
     const html = `전체 <b>${c.total}</b><span class="dot-sep">·</span>클리어 <span class="s-done">${c.done}</span><span class="dot-sep">·</span>미클리어 <span class="s-todo">${c.todo}</span>`;
-    const mEl = document.getElementById('summaryBarMobile');
     const dEl = document.getElementById('summaryBarDesktop');
-    if(mEl) mEl.innerHTML = html;
     if(dEl) dEl.innerHTML = html;
   }
 
@@ -233,12 +244,12 @@
      6. 화면: 전체목록
      --------------------------------------------------------- */
   function buildChipRow(container, selectedKey, onSelect){
-    const chips = [{key:'all', label:'전체', color:'#111827'}].concat(CATEGORIES);
+    const chips = [{key:'all', label:'전체', color:'var(--accent)'}].concat(CATEGORIES);
     container.innerHTML = chips.map(c=>{
       const active = c.key === selectedKey;
       const cnt = c.key==='all' ? GAMES.length : GAMES.filter(g=>g.category===c.key).length;
-      return `<div class="chip ${active?'active':''}" data-cat="${c.key}">
-        <span class="dot" style="background:${active?'var(--accent)':c.color}"></span>
+      return `<div class="chip ${active?'active':''}" data-cat="${c.key}" style="--cat-color:${c.color}">
+        <span class="dot" style="background:${active?'#fff':c.color}"></span>
         <span>${escapeHtml(c.label)}</span>
         <span class="cnt">${cnt}</span>
       </div>`;
@@ -288,7 +299,7 @@
       const list = GAMES.filter(g=>g.category===cat.key);
       const c = counts(list);
       const pct = c.total ? Math.round(c.done / c.total * 100) : 0;
-      return `<button class="cat-card" data-cat="${cat.key}">
+      return `<button class="cat-card" data-cat="${cat.key}" style="--cat-color:${cat.color}">
         <div class="top-row">
           <span class="dot" style="background:${cat.color}"></span>
           <div class="name">${escapeHtml(cat.label)}</div>
