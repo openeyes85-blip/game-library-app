@@ -32,21 +32,21 @@ except ImportError:
 
 # 구분 코드 -> (내부 key, 화면 표시 라벨, 색상)
 CAT_META = {
-    'S2':  ('s2',        'Switch2',          '#e49494'),
-    'S2D': ('s2d',       'Switch2 DL',       '#e4b494'),
-    1:     ('g1st',      '1st',              '#e4d494'),
-    2:     ('g2nd',      '2nd',              '#d4e494'),
-    3:     ('g3rd',      '3rd',              '#b4e494'),
-    4:     ('g4th',      '4th',              '#94e494'),
-    5:     ('g5th',      '5th',              '#94e4b4'),
-    6:     ('g6th',      '6th',              '#94e4d4'),
-    7:     ('g7th',      '7th',              '#94d4e4'),
-    8:     ('action',    'Action&Arcade',    '#94b4e4'),
-    9:     ('indie',     'Indie Action',     '#9494e4'),
-    10:    ('rpg',       'RPG&Simulation',   '#b494e4'),
-    11:    ('adventure', 'Adventure&Puzzle', '#d494e4'),
-    12:    ('minor',     'Minor&Etc.',       '#e494d4'),
-    13:    ('multi',     'Multi&Repeat',     '#e494b4'),
+    'S2':  ('s2',        'Switch2',          '#782a2a'),
+    'S2D': ('s2d',       'Switch2 DL',       '#78492a'),
+    1:     ('g1st',      '1st',              '#78692a'),
+    2:     ('g2nd',      '2nd',              '#69782a'),
+    3:     ('g3rd',      '3rd',              '#49782a'),
+    4:     ('g4th',      '4th',              '#2a782a'),
+    5:     ('g5th',      '5th',              '#2a7849'),
+    6:     ('g6th',      '6th',              '#2a7869'),
+    7:     ('g7th',      '7th',              '#2a6978'),
+    8:     ('action',    'Action&Arcade',    '#2a4978'),
+    9:     ('indie',     'Indie Action',     '#2a2a78'),
+    10:    ('rpg',       'RPG&Simulation',   '#492a78'),
+    11:    ('adventure', 'Adventure&Puzzle', '#692a78'),
+    12:    ('minor',     'Minor&Etc.',       '#782a69'),
+    13:    ('multi',     'Multi&Repeat',     '#782a49'),
 }
 
 CATEGORY_ORDER = ['S2','S2D',1,2,3,4,5,6,7,8,9,10,11,12,13]
@@ -68,6 +68,7 @@ def extract_games(xlsx_path: str):
         no = ws.cell(row=r, column=2).value
         title = ws.cell(row=r, column=3).value
         cat = ws.cell(row=r, column=4).value
+        ending = ws.cell(row=r, column=6).value  # 엔딩(클리어) 컬럼
         if title is None and cat is None:
             continue
         if cat not in CAT_META:
@@ -76,6 +77,7 @@ def extract_games(xlsx_path: str):
             "no": no,
             "title": title.strip() if isinstance(title, str) else title,
             "cat": cat,
+            "done": (ending == 'Y'),
         })
 
     seen = {}
@@ -91,6 +93,7 @@ def extract_games(xlsx_path: str):
             "number": it['no'],
             "title": it['title'],
             "category": key,
+            "d0": it['done'],
         })
     return games
 
