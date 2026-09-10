@@ -1,6 +1,8 @@
 /* =========================================================
    Nintendo Switch 게임 라이브러리 — 앱 로직
    데이터(GAMES, CATEGORIES)는 js/data.js 에서 로드됩니다.
+   단일 화면 구조: 카테고리 칩 + 상태 필터 + 즐겨찾기 토글이
+   모두 하나의 목록 위에서 동작합니다.
    ========================================================= */
 (function(){
   "use strict";
@@ -11,7 +13,7 @@
   const LS_KEYS = {
     cleared: 'gl_cleared_v1',      // string[] of game.id
     favorites: 'gl_favorites_v1',  // string[] of game.id
-    state: 'gl_state_v1'           // {tab, category, listStatus, sort:{list,fav}}
+    state: 'gl_state_v2'           // {category, status, favoritesOnly, sort, pcSort, pcFavOnly, scroll}
   };
 
   function loadSet(key){
@@ -27,20 +29,19 @@
   }
   function loadState(){
     const def = {
-      tab: 'list',
       category: 'all',
-      listStatus: 'all',
-      sort: { list:'number', fav:'number' },
-      scroll: { list:0, categories:0, favorites:0 }
+      status: 'all',
+      favoritesOnly: false,
+      sort: 'number',
+      pcSort: 'number',
+      pcFavOnly: false,
+      scroll: 0
     };
     try{
       const raw = localStorage.getItem(LS_KEYS.state);
       if(!raw) return def;
       const parsed = JSON.parse(raw);
-      return Object.assign({}, def, parsed, {
-        sort: Object.assign({}, def.sort, parsed.sort||{}),
-        scroll: Object.assign({}, def.scroll, parsed.scroll||{})
-      });
+      return Object.assign({}, def, parsed);
     }catch(e){ return def; }
   }
   function saveState(){
@@ -68,9 +69,6 @@
      --------------------------------------------------------- */
   const CAT_MAP = {};
   CATEGORIES.forEach(c => { CAT_MAP[c.key] = c; });
-
-  const GAME_MAP = {};
-  GAMES.forEach(g => { GAME_MAP[g.id] = g; });
 
   function isCleared(id){ return cleared.has(id); }
   function isFav(id){ return favorites.has(id); }
@@ -113,6 +111,10 @@
     if(status === 'todo') return list.filter(g=>!isCleared(g.id));
     return list;
   }
+  function filterByFavorites(list, favOnly){
+    if(!favOnly) return list;
+    return list.filter(g=>isFav(g.id));
+  }
   function filterBySearch(list, q){
     if(!q) return list;
     const needle = q.trim().toLowerCase();
@@ -145,7 +147,7 @@
   const STAR_OUTLINE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
 
   /* ---------------------------------------------------------
-     4. 목록(row) 렌더링 — 모바일
+     4. 목록(row) 렌더링
      --------------------------------------------------------- */
   function buildRowHTML(g){
     const done = isCleared(g.id);
@@ -229,7 +231,7 @@
   }
 
   /* ---------------------------------------------------------
-     5. 요약 바
+     5. 요약 바 (히어로 카드)
      --------------------------------------------------------- */
   function renderSummary(){
     const c = counts(GAMES);
@@ -251,7 +253,7 @@
   }
 
   /* ---------------------------------------------------------
-     6. 화면: 전체목록
+     6. 메인 목록 화면 (단일 화면)
      --------------------------------------------------------- */
   function buildChipRow(container, selectedKey, onSelect){
     const chips = [{key:'all', label:'전체', color:'var(--accent)'}].concat(CATEGORIES);
@@ -269,7 +271,9 @@
     });
   }
 
-  function renderListScreen(){
+  let searchQuery = '';
+
+  function renderList(){
     const container = document.getElementById('listContainer');
     const emptyEl = document.getElementById('listEmpty');
     const countEl = document.getElementById('listResultCount');
@@ -277,124 +281,46 @@
     buildChipRow(document.getElementById('chipRowList'), APP.state.category, (catKey)=>{
       APP.state.category = catKey;
       saveState();
-      renderListScreen();
+      renderList();
     });
 
     document.querySelectorAll('#segListStatus button').forEach(b=>{
-      b.classList.toggle('active', b.dataset.v === APP.state.listStatus);
+      b.classList.toggle('active', b.dataset.v === APP.state.status);
     });
-    document.getElementById('sortSelectList').value = APP.state.sort.list;
+    document.getElementById('sortSelectList').value = APP.state.sort;
+
+    const favBtn = document.getElementById('btnFavToggle');
+    if(favBtn) favBtn.classList.toggle('active', APP.state.favoritesOnly);
 
     let list = filterByCategory(GAMES, APP.state.category);
-    list = filterByStatus(list, APP.state.listStatus);
-    list = sortGames(list, APP.state.sort.list);
+    list = filterByStatus(list, APP.state.status);
+    list = filterByFavorites(list, APP.state.favoritesOnly);
+    list = filterBySearch(list, searchQuery);
+    list = sortGames(list, APP.state.sort);
 
-    countEl.textContent = `${list.length}개 표시 중`;
+    if(searchQuery){
+      countEl.textContent = `"${searchQuery}" 검색 결과 ${list.length}개`;
+    }else if(APP.state.favoritesOnly){
+      countEl.textContent = `즐겨찾기 ${list.length}개`;
+    }else{
+      countEl.textContent = `${list.length}개 표시 중`;
+    }
 
     if(list.length === 0){
       container.innerHTML = '';
       emptyEl.classList.add('show');
+      emptyEl.innerHTML = APP.state.favoritesOnly
+        ? '<div class="big">⭐</div>즐겨찾기한 게임이 없어요<br>별표를 눌러 추가해보세요'
+        : (searchQuery ? '<div class="big">🔍</div>검색 결과가 없어요' : '<div class="big">🎮</div>조건에 맞는 게임이 없어요');
     }else{
       emptyEl.classList.remove('show');
-      renderGroupedList(container, list, { grouped: APP.state.category === 'all' });
+      const grouped = APP.state.category === 'all' && !searchQuery;
+      renderGroupedList(container, list, { grouped });
     }
   }
 
   /* ---------------------------------------------------------
-     7. 화면: 카테고리
-     --------------------------------------------------------- */
-  function renderCategoriesScreen(){
-    const grid = document.getElementById('catGrid');
-    grid.innerHTML = CATEGORIES.map(cat=>{
-      const list = GAMES.filter(g=>g.category===cat.key);
-      const c = counts(list);
-      const pct = c.total ? Math.round(c.done / c.total * 100) : 0;
-      return `<button class="cat-card" data-cat="${cat.key}" style="--cat-color:${cat.color}">
-        <div class="top-row">
-          <span class="dot"></span>
-          <div class="name">${escapeHtml(cat.label)}</div>
-        </div>
-        <div class="stat"><span class="n">${c.total}</span><span class="of">개</span></div>
-        <div class="of">${c.done} 클리어</div>
-        <div class="prog-track"><div class="prog-fill" style="width:${pct}%"></div></div>
-      </button>`;
-    }).join('');
-    grid.querySelectorAll('.cat-card').forEach(card=>{
-      card.addEventListener('click', ()=>{
-        APP.state.category = card.dataset.cat;
-        APP.state.listStatus = 'all';
-        saveState();
-        goToScreen('list');
-        renderListScreen();
-      });
-    });
-  }
-
-  /* ---------------------------------------------------------
-     8. 화면: 즐겨찾기
-     --------------------------------------------------------- */
-  function renderFavoritesScreen(){
-    const container = document.getElementById('favContainer');
-    const emptyEl = document.getElementById('favEmpty');
-    const countEl = document.getElementById('favResultCount');
-
-    document.getElementById('sortSelectFav').value = APP.state.sort.fav;
-
-    let list = GAMES.filter(g=>isFav(g.id));
-    list = sortGames(list, APP.state.sort.fav);
-    countEl.textContent = `${list.length}개`;
-
-    if(list.length === 0){
-      container.innerHTML = '';
-      emptyEl.classList.add('show');
-    }else{
-      emptyEl.classList.remove('show');
-      renderGroupedList(container, list, { grouped:true });
-    }
-  }
-
-  /* ---------------------------------------------------------
-     10. 검색
-     --------------------------------------------------------- */
-  let prevScreenBeforeSearch = 'list';
-
-  function runSearch(q){
-    const container = document.getElementById('searchContainer');
-    const emptyEl = document.getElementById('searchEmpty');
-    const countEl = document.getElementById('searchResultCount');
-
-    let list = filterBySearch(GAMES, q);
-    list = sortGames(list, 'number');
-    countEl.textContent = q ? `"${q}" 검색 결과 ${list.length}개` : '';
-
-    if(!q || list.length === 0){
-      container.innerHTML = '';
-      emptyEl.classList.toggle('show', !!q);
-    }else{
-      emptyEl.classList.remove('show');
-      // 검색 결과에는 카테고리 배지를 함께 표시
-      container.innerHTML = list.map(g=>{
-        const cat = CAT_MAP[g.category];
-        const done = isCleared(g.id);
-        const fav = isFav(g.id);
-        return `
-        <div class="row ${done?'cleared':''}" data-id="${g.id}">
-          <div class="no">${g.number != null ? g.number : ''}</div>
-          <div class="main">
-            <span class="cat-dot" style="background:${cat?cat.color:'#999'}"></span>
-            <div class="title">${escapeHtml(g.title)}</div>
-            <button class="star-btn ${fav?'active':''}" data-action="fav" aria-label="즐겨찾기">${fav?STAR_SVG:STAR_OUTLINE_SVG}</button>
-            <button class="check-btn" data-action="check" aria-label="클리어 체크">
-              <span class="check-circle">${CHECK_SVG}</span>
-            </button>
-          </div>
-        </div>`;
-      }).join('');
-    }
-  }
-
-  /* ---------------------------------------------------------
-     11. 데스크톱(PC) 그리드
+     7. 데스크톱(PC) 그리드
      --------------------------------------------------------- */
   function renderPcGrid(query){
     const grid = document.getElementById('pcGrid');
@@ -404,11 +330,14 @@
 
     CATEGORIES.forEach(cat=>{
       let list = GAMES.filter(g=>g.category===cat.key);
+      if(APP.state.pcFavOnly){
+        list = list.filter(g=>isFav(g.id));
+      }
       if(q){
         list = list.filter(g=> g.title.toLowerCase().includes(q) || String(g.number).includes(q));
       }
       list = sortGames(list, APP.state.pcSort || 'number');
-      if(q && list.length===0) return; // 검색 중엔 결과 없는 패널 숨김
+      if((q || APP.state.pcFavOnly) && list.length===0) return; // 필터 중엔 결과 없는 패널 숨김
       anyVisible = true;
 
       const c = counts(GAMES.filter(g=>g.category===cat.key));
@@ -436,7 +365,7 @@
     });
 
     if(!anyVisible){
-      grid.innerHTML = '<div class="pc-empty">검색 결과가 없습니다</div>';
+      grid.innerHTML = '<div class="pc-empty">해당하는 게임이 없습니다</div>';
     }
   }
 
@@ -459,117 +388,25 @@
         btn.innerHTML = fav ? STAR_SVG : STAR_OUTLINE_SVG;
       }
       renderSummary();
-      renderCategoryGridSoft();
-    });
-  }
-
-  function renderCategoryGridSoft(){
-    // 카테고리 탭이 열려있을 때만 갱신 (성능 절약)
-    if(APP.state.tab === 'categories') renderCategoriesScreen();
-  }
-
-  /* ---------------------------------------------------------
-     12. 화면 전환
-     --------------------------------------------------------- */
-  const SCREEN_IDS = ['list','categories','favorites','search'];
-  function goToScreen(name, opts){
-    opts = opts || {};
-    SCREEN_IDS.forEach(id=>{
-      const s = document.getElementById('screen-'+id);
-      if(s) s.classList.toggle('active', id===name);
-    });
-    document.querySelectorAll('.nav-btn').forEach(b=>{
-      b.classList.toggle('active', b.dataset.screen === name);
-    });
-    if(name !== 'search'){
-      APP.state.tab = name;
-      saveState();
-    }
-    if(opts.restoreScroll && APP.state.scroll && APP.state.scroll[name]){
-      // 콘텐츠가 렌더링된 다음 프레임에 스크롤 위치를 복원
-      requestAnimationFrame(()=>{
-        requestAnimationFrame(()=>{
-          window.scrollTo({top: APP.state.scroll[name], behavior:'auto'});
-        });
-      });
-    }else{
-      window.scrollTo({top:0, behavior:'auto'});
-    }
-  }
-
-  // 탭별 스크롤 위치 기억 (다음 접속 시 복원)
-  let scrollSaveTimer = null;
-  function initScrollMemory(){
-    window.addEventListener('scroll', ()=>{
-      const tab = APP.state.tab;
-      if(!tab || tab === 'search') return;
-      clearTimeout(scrollSaveTimer);
-      scrollSaveTimer = setTimeout(()=>{
-        APP.state.scroll = APP.state.scroll || {};
-        APP.state.scroll[tab] = window.scrollY;
-        saveState();
-      }, 250);
-    }, {passive:true});
-    window.addEventListener('beforeunload', ()=>{
-      const tab = APP.state.tab;
-      if(!tab || tab === 'search') return;
-      APP.state.scroll = APP.state.scroll || {};
-      APP.state.scroll[tab] = window.scrollY;
-      saveState();
     });
   }
 
   /* ---------------------------------------------------------
-     13. 이벤트 바인딩
+     8. 즐겨찾기 토글 (상단 버튼 하나)
      --------------------------------------------------------- */
-  function initNav(){
-    document.getElementById('bottomNav').addEventListener('click', function(e){
-      const btn = e.target.closest('.nav-btn');
-      if(!btn) return;
-      closeSearch();
-      goToScreen(btn.dataset.screen);
-      renderCurrentScreen();
-    });
-  }
-
-  function renderCurrentScreen(){
-    switch(APP.state.tab){
-      case 'list': renderListScreen(); break;
-      case 'categories': renderCategoriesScreen(); break;
-      case 'favorites': renderFavoritesScreen(); break;
-    }
-  }
-
-  function initListControls(){
-    document.getElementById('segListStatus').addEventListener('click', e=>{
-      const b = e.target.closest('button'); if(!b) return;
-      APP.state.listStatus = b.dataset.v;
+  function initFavToggle(){
+    const btn = document.getElementById('btnFavToggle');
+    if(!btn) return;
+    btn.addEventListener('click', ()=>{
+      APP.state.favoritesOnly = !APP.state.favoritesOnly;
       saveState();
-      renderListScreen();
-    });
-    document.getElementById('sortSelectList').addEventListener('change', e=>{
-      APP.state.sort.list = e.target.value;
-      saveState();
-      renderListScreen();
-    });
-    bindRowDelegation(document.getElementById('listContainer'), ()=>{
-      renderSummary();
-      renderCategoryGridSoft();
+      renderList();
     });
   }
 
-  function initFavControls(){
-    document.getElementById('sortSelectFav').addEventListener('change', e=>{
-      APP.state.sort.fav = e.target.value;
-      saveState();
-      renderFavoritesScreen();
-    });
-    bindRowDelegation(document.getElementById('favContainer'), ()=>{
-      renderSummary();
-      renderFavoritesScreen();
-    });
-  }
-
+  /* ---------------------------------------------------------
+     9. 검색 (같은 목록에 바로 필터 적용)
+     --------------------------------------------------------- */
   function initSearchControls(){
     const btnSearch = document.getElementById('btnSearch');
     const searchRow = document.getElementById('searchRow');
@@ -577,34 +414,53 @@
     const btnCancel = document.getElementById('btnSearchCancel');
 
     btnSearch.addEventListener('click', ()=>{
-      searchRow.classList.add('open');
-      input.focus();
-      prevScreenBeforeSearch = APP.state.tab;
-      goToScreenSearch();
+      const opening = !searchRow.classList.contains('open');
+      searchRow.classList.toggle('open', opening);
+      if(opening) input.focus();
     });
-    btnCancel.addEventListener('click', closeSearch);
-    input.addEventListener('input', ()=> runSearch(input.value));
-
-    bindRowDelegation(document.getElementById('searchContainer'), ()=>{
-      renderSummary();
-      runSearch(input.value);
-      renderCategoryGridSoft();
+    btnCancel.addEventListener('click', ()=>{
+      searchRow.classList.remove('open');
+      input.value = '';
+      searchQuery = '';
+      renderList();
     });
-
-    function goToScreenSearch(){
-      SCREEN_IDS.forEach(id=>{
-        const s = document.getElementById('screen-'+id);
-        if(s) s.classList.toggle('active', id==='search');
-      });
-    }
+    input.addEventListener('input', ()=>{
+      searchQuery = input.value;
+      renderList();
+    });
   }
-  function closeSearch(){
-    const searchRow = document.getElementById('searchRow');
-    const input = document.getElementById('searchInput');
-    searchRow.classList.remove('open');
-    input.value = '';
-    goToScreen(prevScreenBeforeSearch);
-    renderCurrentScreen();
+
+  /* ---------------------------------------------------------
+     10. 설정 패널 (백업/복원/초기화)
+     --------------------------------------------------------- */
+  function initSettingsToggle(){
+    const btn = document.getElementById('btnSettings');
+    const panel = document.getElementById('settingsPanel');
+    if(!btn || !panel) return;
+    btn.addEventListener('click', ()=>{
+      const open = panel.classList.toggle('open');
+      btn.classList.toggle('active', open);
+    });
+  }
+
+  /* ---------------------------------------------------------
+     11. 목록 화면 컨트롤
+     --------------------------------------------------------- */
+  function initListControls(){
+    document.getElementById('segListStatus').addEventListener('click', e=>{
+      const b = e.target.closest('button'); if(!b) return;
+      APP.state.status = b.dataset.v;
+      saveState();
+      renderList();
+    });
+    document.getElementById('sortSelectList').addEventListener('change', e=>{
+      APP.state.sort = e.target.value;
+      saveState();
+      renderList();
+    });
+    bindRowDelegation(document.getElementById('listContainer'), ()=>{
+      renderSummary();
+    });
   }
 
   function initPcControls(){
@@ -614,17 +470,27 @@
     document.getElementById('pcBtnSort').addEventListener('click', function(){
       APP.state.pcSort = (APP.state.pcSort === 'title') ? 'number' : 'title';
       this.textContent = APP.state.pcSort === 'title' ? '가나다순' : '번호순';
+      saveState();
       renderPcGrid(input.value);
     });
+    const favBtn = document.getElementById('pcBtnFav');
+    if(favBtn){
+      favBtn.addEventListener('click', function(){
+        APP.state.pcFavOnly = !APP.state.pcFavOnly;
+        this.classList.toggle('active', APP.state.pcFavOnly);
+        saveState();
+        renderPcGrid(input.value);
+      });
+    }
   }
 
   /* ---------------------------------------------------------
-     14. 백업 / 복원 / 초기화
+     12. 백업 / 복원 / 초기화
      --------------------------------------------------------- */
   function exportBackup(){
     const payload = {
       app: 'switch-game-library',
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       cleared: Array.from(cleared),
       favorites: Array.from(favorites),
@@ -656,7 +522,8 @@
           saveState();
         }
         renderSummary();
-        renderCurrentScreen();
+        renderList();
+        renderPcGrid('');
         alert('복원이 완료되었습니다.');
       }catch(err){
         alert('백업 파일을 읽을 수 없습니다. 올바른 JSON 파일인지 확인해주세요.');
@@ -672,7 +539,8 @@
     saveSet(LS_KEYS.cleared, cleared);
     saveSet(LS_KEYS.favorites, favorites);
     renderSummary();
-    renderCurrentScreen();
+    renderList();
+    renderPcGrid('');
   }
 
   function initDataControls(){
@@ -698,8 +566,23 @@
   }
 
   /* ---------------------------------------------------------
-     15. 뒤로가기(맨 위로) 버튼
+     13. 스크롤 위치 기억 + 맨 위로 버튼
      --------------------------------------------------------- */
+  let scrollSaveTimer = null;
+  function initScrollMemory(){
+    window.addEventListener('scroll', ()=>{
+      clearTimeout(scrollSaveTimer);
+      scrollSaveTimer = setTimeout(()=>{
+        APP.state.scroll = window.scrollY;
+        saveState();
+      }, 250);
+    }, {passive:true});
+    window.addEventListener('beforeunload', ()=>{
+      APP.state.scroll = window.scrollY;
+      saveState();
+    });
+  }
+
   function initScrollTop(){
     const btn = document.getElementById('btnTop');
     window.addEventListener('scroll', ()=>{
@@ -709,7 +592,7 @@
   }
 
   /* ---------------------------------------------------------
-     16. 설치(PWA) / 전체화면
+     14. 설치(PWA) / 전체화면
      --------------------------------------------------------- */
   let deferredPrompt = null;
   function initInstall(){
@@ -752,19 +635,14 @@
   }
 
   /* ---------------------------------------------------------
-     17. 초기화
+     15. 초기화
      --------------------------------------------------------- */
-  function restoreInitialUi(){
-    // 마지막 탭 + 마지막 스크롤 위치 복원 (앱을 다시 열었을 때)
-    goToScreen(APP.state.tab || 'list', { restoreScroll:true });
-  }
-
   function init(){
     renderSummary();
-    initNav();
     initListControls();
-    initFavControls();
+    initFavToggle();
     initSearchControls();
+    initSettingsToggle();
     initPcControls();
     initPcRowActions();
     initDataControls();
@@ -773,9 +651,17 @@
     initInstall();
     initFullscreen();
 
-    restoreInitialUi();
-    renderCurrentScreen();
+    renderList();
     renderPcGrid('');
+
+    // 이전 스크롤 위치 복원 (렌더링 이후 다음 프레임에)
+    if(APP.state.scroll){
+      requestAnimationFrame(()=>{
+        requestAnimationFrame(()=>{
+          window.scrollTo({top: APP.state.scroll, behavior:'auto'});
+        });
+      });
+    }
 
     if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
       window.addEventListener('load', ()=>{
