@@ -22,8 +22,14 @@
   <header class="appbar mobile-only">
     <div class="appbar-row">
       <h1 class="appbar-title">GAME LIST</h1>
+      <button class="icon-btn" id="btnFavToggle" aria-label="즐겨찾기만 보기">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </button>
       <button class="icon-btn" id="btnSearch" aria-label="검색">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
+      <button class="icon-btn" id="btnSettings" aria-label="설정">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
       <button class="icon-btn" id="btnFullscreen" aria-label="전체화면">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
@@ -51,6 +57,15 @@
         </div>
       </div>
     </div>
+    <div class="settings-panel" id="settingsPanel">
+      <div class="label">데이터 관리</div>
+      <div class="actions">
+        <button class="pill-btn" id="btnBackup">백업 (JSON 내보내기)</button>
+        <button class="pill-btn" id="btnRestore">복원 (JSON 불러오기)</button>
+        <button class="pill-btn danger" id="btnReset">클리어/즐겨찾기 초기화</button>
+      </div>
+      <input type="file" id="restoreFile" accept="application/json" class="visually-hidden">
+    </div>
   </header>
 
   <!-- ============ DESKTOP HEADER ============ -->
@@ -63,6 +78,7 @@
         <input id="pcSearchInput" type="text" placeholder="게임명 검색">
       </div>
       <div class="pc-actions">
+        <button class="pill-btn" id="pcBtnFav">즐겨찾기만</button>
         <button class="pill-btn" id="pcBtnSort">번호순</button>
         <button class="pill-btn" id="pcBtnBackup">백업</button>
         <button class="pill-btn" id="pcBtnRestore">복원</button>
@@ -73,8 +89,8 @@
 
   <main>
 
-    <!-- ============ MOBILE: 전체목록 ============ -->
-    <section class="screen mobile-only" id="screen-list">
+    <!-- ============ MOBILE: 전체 목록 (단일 화면) ============ -->
+    <section class="mobile-only" id="screen-list">
       <div class="chip-row" id="chipRowList"></div>
       <div class="tool-row">
         <div class="seg" id="segListStatus">
@@ -87,43 +103,9 @@
           <option value="title">가나다순</option>
         </select>
       </div>
-      <div class="result-count" id="listResultCount" style="padding:8px 14px 0; color:var(--text-faint); font-size:12px;"></div>
+      <div class="result-count" id="listResultCount" style="padding:8px 16px 0; color:var(--text-faint); font-size:12.5px; font-weight:600;"></div>
       <div id="listContainer"></div>
       <div class="empty-state" id="listEmpty"><div class="big">🎮</div>조건에 맞는 게임이 없어요</div>
-    </section>
-
-    <!-- ============ MOBILE: 카테고리 ============ -->
-    <section class="screen mobile-only" id="screen-categories">
-      <div class="cat-grid" id="catGrid"></div>
-      <div class="tool-panel">
-        <div class="label">데이터 관리</div>
-        <div class="actions">
-          <button class="pill-btn" id="btnBackup">백업 (JSON 내보내기)</button>
-          <button class="pill-btn" id="btnRestore">복원 (JSON 불러오기)</button>
-          <button class="pill-btn danger" id="btnReset">클리어/즐겨찾기 초기화</button>
-        </div>
-        <input type="file" id="restoreFile" accept="application/json" class="visually-hidden">
-      </div>
-    </section>
-
-    <!-- ============ MOBILE: 즐겨찾기 ============ -->
-    <section class="screen mobile-only" id="screen-favorites">
-      <div class="tool-row">
-        <select class="sort-select" id="sortSelectFav">
-          <option value="number">번호순</option>
-          <option value="title">가나다순</option>
-        </select>
-        <div class="result-count" id="favResultCount"></div>
-      </div>
-      <div id="favContainer"></div>
-      <div class="empty-state" id="favEmpty"><div class="big">⭐</div>즐겨찾기한 게임이 없어요<br>목록에서 별표를 눌러보세요</div>
-    </section>
-
-    <!-- ============ MOBILE: 검색 결과 오버레이 ============ -->
-    <section class="screen mobile-only" id="screen-search">
-      <div class="result-count" id="searchResultCount" style="padding:12px 14px 0; color:var(--text-faint); font-size:12px;"></div>
-      <div id="searchContainer"></div>
-      <div class="empty-state" id="searchEmpty"><div class="big">🔍</div>검색 결과가 없어요</div>
     </section>
 
     <!-- ============ DESKTOP: 카테고리 그리드 ============ -->
@@ -133,22 +115,6 @@
     </section>
 
   </main>
-
-  <!-- ============ BOTTOM NAV (mobile) ============ -->
-  <nav class="bottom-nav mobile-only" id="bottomNav">
-    <button class="nav-btn active" data-screen="list">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-      <span>전체목록</span>
-    </button>
-    <button class="nav-btn" data-screen="categories">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-      <span>카테고리</span>
-    </button>
-    <button class="nav-btn" data-screen="favorites">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-      <span>즐겨찾기</span>
-    </button>
-  </nav>
 
   <button class="top-btn mobile-only" id="btnTop" aria-label="맨 위로">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
