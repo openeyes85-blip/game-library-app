@@ -486,6 +486,13 @@ main{
 .modal-field input:focus,
 .modal-field select:focus{border-color:var(--accent); outline:none;}
 .modal-field select{appearance:none;}
+.modal-hint{
+  margin-top:6px;
+  font-size:12px;
+  font-weight:600;
+  line-height:1.4;
+  color:var(--text-faint);
+}
 .modal-error{
   color:var(--danger);
   font-size:13px;

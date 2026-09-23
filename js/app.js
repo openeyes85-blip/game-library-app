@@ -16,7 +16,8 @@
     favorites: 'gl_favorites_v1',  // string[] of game.id
     state: 'gl_state_v2',          // {category, status, favoritesOnly, sort, pcSort, pcFavOnly, scroll}
     customGames: 'gl_custom_games_v1', // 앱에서 직접 추가한 게임 목록
-    deletedIds: 'gl_deleted_ids_v1'    // 목록에서 삭제(숨김) 처리한 원본 게임 id
+    deletedIds: 'gl_deleted_ids_v1',   // 목록에서 삭제(숨김) 처리한 원본 게임 id
+    numberOverrides: 'gl_number_overrides_v1' // 번호 밀림으로 바뀐 원본 게임의 새 번호 {id: number}
   };
 
   function loadSet(key){
@@ -95,9 +96,21 @@
   function saveDeletedIds(set){
     try{ localStorage.setItem(LS_KEYS.deletedIds, JSON.stringify(Array.from(set))); }catch(e){}
   }
+  function loadNumberOverrides(){
+    try{
+      const raw = localStorage.getItem(LS_KEYS.numberOverrides);
+      if(!raw) return {};
+      const obj = JSON.parse(raw);
+      return (obj && typeof obj === 'object') ? obj : {};
+    }catch(e){ return {}; }
+  }
+  function saveNumberOverrides(obj){
+    try{ localStorage.setItem(LS_KEYS.numberOverrides, JSON.stringify(obj)); }catch(e){}
+  }
 
   let customGames = loadCustomGames();
   let deletedIds = loadDeletedIds();
+  let numberOverrides = loadNumberOverrides(); // 원본 게임 중 번호가 밀려서 바뀐 것들 {id: newNumber}
 
   function slugify(title){
     if(!title) return 'untitled';
@@ -114,10 +127,16 @@
     return `${base}-${n}`;
   }
 
-  // 원본(GAMES_BASE)에서 삭제 처리된 항목을 빼고, 사용자가 추가한 게임을 더해
-  // 실제로 화면에 쓰일 GAMES 배열을 만든다.
+  // 원본(GAMES_BASE)에서 삭제 처리된 항목을 빼고, 번호가 밀린 항목엔 새 번호를
+  // 적용한 뒤, 사용자가 추가한 게임을 더해 실제로 화면에 쓰일 GAMES 배열을 만든다.
+  // GAMES_BASE 원본 객체 자체는 절대 수정하지 않는다(항상 새 객체를 만들어 사용).
   function buildGames(){
-    const base = GAMES_BASE.filter(g => !deletedIds.has(g.id));
+    const base = GAMES_BASE
+      .filter(g => !deletedIds.has(g.id))
+      .map(g => {
+        const overridden = numberOverrides[g.id];
+        return (overridden !== undefined) ? Object.assign({}, g, { number: overridden }) : g;
+      });
     return base.concat(customGames);
   }
 
@@ -127,8 +146,33 @@
     GAMES = buildGames();
   }
 
+  // 지정한 카테고리 안에서, number 이상인 게임들의 번호를 모두 1씩 뒤로 밀어
+  // 그 자리(번호)가 비도록 만든다. (원본 GAMES_BASE 객체 자체는 수정하지 않고,
+  // 원본 게임은 numberOverrides에 새 번호를 기록하는 방식으로 처리한다)
+  function shiftNumbersFrom(category, fromNumber){
+    const customById = new Map(customGames.map(g=>[g.id, g]));
+    let changed = false;
+    GAMES.forEach(g=>{
+      if(g.category !== category) return;
+      if(g.number == null || g.number < fromNumber) return;
+      const newNumber = g.number + 1;
+      if(customById.has(g.id)){
+        customById.get(g.id).number = newNumber;
+      }else{
+        numberOverrides[g.id] = newNumber;
+      }
+      changed = true;
+    });
+    if(changed){
+      saveCustomGames(customGames);
+      saveNumberOverrides(numberOverrides);
+    }
+  }
+
   // 게임 추가: 사용자가 입력한 제목/카테고리/번호로 새 게임을 만들어
   // customGames에 저장한다. (원본 GAMES_BASE는 절대 건드리지 않음)
+  // 번호를 지정하면, 같은 카테고리에서 그 번호 이상이던 기존 게임들은
+  // 모두 번호가 하나씩 뒤로 밀린다(자리를 만들어 끼워넣는 방식).
   function addGame({ title, category, number }){
     const cleanTitle = String(title || '').trim();
     if(!cleanTitle) return { ok:false, reason:'title' };
@@ -141,6 +185,10 @@
     if(number !== '' && number !== null && number !== undefined){
       const n = Number(number);
       if(!Number.isNaN(n)) num = n;
+    }
+
+    if(num != null){
+      shiftNumbersFrom(category, num);
     }
 
     const game = { id, number: num, title: cleanTitle, category, d0: false, custom: true };
@@ -161,6 +209,10 @@
     }else{
       deletedIds.add(id);
       saveDeletedIds(deletedIds);
+      if(numberOverrides[id] !== undefined){
+        delete numberOverrides[id];
+        saveNumberOverrides(numberOverrides);
+      }
     }
     cleared.delete(id);
     favorites.delete(id);
@@ -622,12 +674,13 @@
   function exportBackup(){
     const payload = {
       app: 'switch-game-library',
-      version: 3,
+      version: 4,
       exportedAt: new Date().toISOString(),
       cleared: Array.from(cleared),
       favorites: Array.from(favorites),
       customGames: customGames,
       deletedIds: Array.from(deletedIds),
+      numberOverrides: numberOverrides,
       state: APP.state
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
@@ -655,8 +708,10 @@
         // 없으면 각각 빈 값으로 처리한다.
         customGames = Array.isArray(data.customGames) ? data.customGames : [];
         deletedIds = new Set(Array.isArray(data.deletedIds) ? data.deletedIds : []);
+        numberOverrides = (data.numberOverrides && typeof data.numberOverrides === 'object') ? data.numberOverrides : {};
         saveCustomGames(customGames);
         saveDeletedIds(deletedIds);
+        saveNumberOverrides(numberOverrides);
         refreshGames();
         if(data.state && typeof data.state === 'object'){
           APP.state = Object.assign({}, APP.state, data.state);
