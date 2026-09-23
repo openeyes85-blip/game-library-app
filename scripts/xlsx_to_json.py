@@ -121,7 +121,9 @@ def main():
         "// 목록을 업데이트하려면 이 파일만 교체하면 됩니다.\n"
         "// (scripts/xlsx_to_json.py 참고)\n\n"
         f"const CATEGORIES = {json.dumps(categories, ensure_ascii=False, separators=(',',':'))};\n\n"
-        f"const GAMES = {json.dumps(games, ensure_ascii=False, separators=(',',':'))};\n"
+        "// GAMES_BASE: 앱은 여기에 사용자가 앱 안에서 직접 추가한 게임(로컬 저장)을\n"
+        "// 합치고, 삭제한 게임은 제외해서 최종 목록을 만듭니다 (js/app.js 참고).\n"
+        f"const GAMES_BASE = {json.dumps(games, ensure_ascii=False, separators=(',',':'))};\n"
     )
     out_path.write_text(js, encoding="utf-8")
     print(f"완료: {len(games)}개 게임을 {out_path} 에 저장했습니다.")

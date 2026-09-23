@@ -1,6 +1,7 @@
 /* =========================================================
    Nintendo Switch 게임 라이브러리 — 앱 로직
-   데이터(GAMES, CATEGORIES)는 js/data.js 에서 로드됩니다.
+   원본 데이터(GAMES_BASE, CATEGORIES)는 js/data.js 에서 로드됩니다.
+   여기에 사용자가 앱 안에서 직접 추가/삭제한 게임을 합쳐 최종 GAMES를 만듭니다.
    단일 화면 구조: 카테고리 칩 + 상태 필터 + 즐겨찾기 토글이
    모두 하나의 목록 위에서 동작합니다.
    ========================================================= */
@@ -13,7 +14,9 @@
   const LS_KEYS = {
     cleared: 'gl_cleared_v1',      // string[] of game.id
     favorites: 'gl_favorites_v1',  // string[] of game.id
-    state: 'gl_state_v2'           // {category, status, favoritesOnly, sort, pcSort, pcFavOnly, scroll}
+    state: 'gl_state_v2',          // {category, status, favoritesOnly, sort, pcSort, pcFavOnly, scroll}
+    customGames: 'gl_custom_games_v1', // 앱에서 직접 추가한 게임 목록
+    deletedIds: 'gl_deleted_ids_v1'    // 목록에서 삭제(숨김) 처리한 원본 게임 id
   };
 
   function loadSet(key){
@@ -54,7 +57,7 @@
   // 최초 실행(저장된 기록이 전혀 없음)이면, 원본 Excel의 "엔딩" 완료 표시를
   // 기본 클리어 상태로 미리 채워준다. 이후에는 사용자의 체크가 항상 우선한다.
   if(cleared === null){
-    cleared = new Set(GAMES.filter(g => g.d0).map(g => g.id));
+    cleared = new Set(GAMES_BASE.filter(g => g.d0).map(g => g.id));
     saveSet(LS_KEYS.cleared, cleared);
   }
   if(favorites === null){
@@ -65,10 +68,106 @@
   const APP = { state: loadState() };
 
   /* ---------------------------------------------------------
-     1. 데이터 준비
+     1. 데이터 준비 (원본 데이터 + 앱에서 추가/삭제한 게임 합치기)
      --------------------------------------------------------- */
   const CAT_MAP = {};
   CATEGORIES.forEach(c => { CAT_MAP[c.key] = c; });
+
+  function loadCustomGames(){
+    try{
+      const raw = localStorage.getItem(LS_KEYS.customGames);
+      if(!raw) return [];
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    }catch(e){ return []; }
+  }
+  function saveCustomGames(arr){
+    try{ localStorage.setItem(LS_KEYS.customGames, JSON.stringify(arr)); }catch(e){}
+  }
+  function loadDeletedIds(){
+    try{
+      const raw = localStorage.getItem(LS_KEYS.deletedIds);
+      if(!raw) return new Set();
+      const arr = JSON.parse(raw);
+      return new Set(Array.isArray(arr) ? arr : []);
+    }catch(e){ return new Set(); }
+  }
+  function saveDeletedIds(set){
+    try{ localStorage.setItem(LS_KEYS.deletedIds, JSON.stringify(Array.from(set))); }catch(e){}
+  }
+
+  let customGames = loadCustomGames();
+  let deletedIds = loadDeletedIds();
+
+  function slugify(title){
+    if(!title) return 'untitled';
+    const s = String(title).replace(/[^0-9A-Za-z가-힣]+/g,'-').replace(/^-+|-+$/g,'').toLowerCase();
+    return s || 'untitled';
+  }
+
+  // 카테고리 + 제목을 바탕으로, 현재 목록 전체와 겹치지 않는 새 id를 만든다.
+  function makeUniqueId(category, title, existingIds){
+    const base = `${category}-${slugify(title)}`;
+    if(!existingIds.has(base)) return base;
+    let n = 2;
+    while(existingIds.has(`${base}-${n}`)) n++;
+    return `${base}-${n}`;
+  }
+
+  // 원본(GAMES_BASE)에서 삭제 처리된 항목을 빼고, 사용자가 추가한 게임을 더해
+  // 실제로 화면에 쓰일 GAMES 배열을 만든다.
+  function buildGames(){
+    const base = GAMES_BASE.filter(g => !deletedIds.has(g.id));
+    return base.concat(customGames);
+  }
+
+  let GAMES = buildGames();
+
+  function refreshGames(){
+    GAMES = buildGames();
+  }
+
+  // 게임 추가: 사용자가 입력한 제목/카테고리/번호로 새 게임을 만들어
+  // customGames에 저장한다. (원본 GAMES_BASE는 절대 건드리지 않음)
+  function addGame({ title, category, number }){
+    const cleanTitle = String(title || '').trim();
+    if(!cleanTitle) return { ok:false, reason:'title' };
+    if(!CAT_MAP[category]) return { ok:false, reason:'category' };
+
+    const existingIds = new Set(GAMES.map(g=>g.id));
+    const id = makeUniqueId(category, cleanTitle, existingIds);
+
+    let num = null;
+    if(number !== '' && number !== null && number !== undefined){
+      const n = Number(number);
+      if(!Number.isNaN(n)) num = n;
+    }
+
+    const game = { id, number: num, title: cleanTitle, category, d0: false, custom: true };
+    customGames = customGames.concat([game]);
+    saveCustomGames(customGames);
+    refreshGames();
+    return { ok:true, game };
+  }
+
+  // 게임 삭제: 사용자가 추가한 게임이면 목록에서 완전히 제거하고,
+  // 원본(GAMES_BASE) 게임이면 deletedIds에 넣어 화면에서만 숨긴다.
+  // (원본 데이터 자체는 바뀌지 않으므로 나중에 복원 가능)
+  function deleteGame(id){
+    const wasCustom = customGames.some(g=>g.id===id);
+    if(wasCustom){
+      customGames = customGames.filter(g=>g.id!==id);
+      saveCustomGames(customGames);
+    }else{
+      deletedIds.add(id);
+      saveDeletedIds(deletedIds);
+    }
+    cleared.delete(id);
+    favorites.delete(id);
+    saveSet(LS_KEYS.cleared, cleared);
+    saveSet(LS_KEYS.favorites, favorites);
+    refreshGames();
+  }
 
   function isCleared(id){ return cleared.has(id); }
   function isFav(id){ return favorites.has(id); }
@@ -121,7 +220,7 @@
     if(!needle) return list;
     return list.filter(g =>
       g.title.toLowerCase().includes(needle) ||
-      String(g.number).includes(needle)
+      String(g.number != null ? g.number : '').includes(needle)
     );
   }
 
@@ -145,6 +244,22 @@
   const CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="#0b1f14" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
   const STAR_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
   const STAR_OUTLINE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+  const TRASH_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
+
+  // 삭제 모드: 켜져 있으면 각 행에 삭제(휴지통) 버튼이 보인다.
+  let deleteMode = false;
+  function setDeleteMode(on){
+    deleteMode = !!on;
+    const appEl = document.getElementById('app');
+    if(appEl) appEl.classList.toggle('delete-mode', deleteMode);
+    ['btnDeleteMode','pcBtnDeleteMode'].forEach(id=>{
+      const btn = document.getElementById(id);
+      if(btn){
+        btn.classList.toggle('active', deleteMode);
+        btn.textContent = deleteMode ? '삭제 모드 끄기' : '삭제 모드';
+      }
+    });
+  }
 
   /* ---------------------------------------------------------
      4. 목록(row) 렌더링
@@ -157,6 +272,7 @@
         <div class="no">${g.number != null ? g.number : ''}</div>
         <div class="main">
           <div class="title">${escapeHtml(g.title)}</div>
+          <button class="row-del" data-action="delete" aria-label="삭제">${TRASH_SVG}</button>
           <button class="star-btn ${fav?'active':''}" data-action="fav" aria-label="즐겨찾기">${fav?STAR_SVG:STAR_OUTLINE_SVG}</button>
           <button class="check-btn" data-action="check" aria-label="클리어 체크">
             <span class="check-circle">${CHECK_SVG}</span>
@@ -217,6 +333,14 @@
         const nowFav = isFav(id);
         btn.classList.toggle('active', nowFav);
         btn.innerHTML = nowFav ? STAR_SVG : STAR_OUTLINE_SVG;
+      }else if(action === 'delete'){
+        const g = GAMES.find(x=>x.id===id);
+        const name = g ? g.title : '이 게임';
+        if(!confirm(`"${name}"을(를) 목록에서 삭제할까요?\n클리어/즐겨찾기 기록도 함께 사라집니다.`)) return;
+        deleteGame(id);
+        renderList();
+        renderPcGrid('');
+        renderSummary();
       }
       if(typeof onChange === 'function') onChange();
     });
@@ -334,7 +458,7 @@
         list = list.filter(g=>isFav(g.id));
       }
       if(q){
-        list = list.filter(g=> g.title.toLowerCase().includes(q) || String(g.number).includes(q));
+        list = list.filter(g=> g.title.toLowerCase().includes(q) || String(g.number != null ? g.number : '').includes(q));
       }
       list = sortGames(list, APP.state.pcSort || 'number');
       if((q || APP.state.pcFavOnly) && list.length===0) return; // 필터 중엔 결과 없는 패널 숨김
@@ -356,6 +480,7 @@
           <div class="no">${g.number!=null?g.number:''}</div>
           <div class="t" title="${escapeHtml(g.title)}">${escapeHtml(g.title)}</div>
           <div class="actions">
+            <button class="del" data-action="delete" aria-label="삭제">${TRASH_SVG}</button>
             <button class="star ${fav?'active':''}" data-action="fav">${fav?STAR_SVG:STAR_OUTLINE_SVG}</button>
             <button class="chk" data-action="check">${done?CHECK_SVG.replace('#0b1f14','currentColor'):''}</button>
           </div>
@@ -386,6 +511,13 @@
         const fav = isFav(id);
         btn.classList.toggle('active', fav);
         btn.innerHTML = fav ? STAR_SVG : STAR_OUTLINE_SVG;
+      }else if(btn.dataset.action === 'delete'){
+        const g = GAMES.find(x=>x.id===id);
+        const name = g ? g.title : '이 게임';
+        if(!confirm(`"${name}"을(를) 목록에서 삭제할까요?\n클리어/즐겨찾기 기록도 함께 사라집니다.`)) return;
+        deleteGame(id);
+        renderList();
+        renderPcGrid(document.getElementById('pcSearchInput') ? document.getElementById('pcSearchInput').value : '');
       }
       renderSummary();
     });
@@ -490,10 +622,12 @@
   function exportBackup(){
     const payload = {
       app: 'switch-game-library',
-      version: 2,
+      version: 3,
       exportedAt: new Date().toISOString(),
       cleared: Array.from(cleared),
       favorites: Array.from(favorites),
+      customGames: customGames,
+      deletedIds: Array.from(deletedIds),
       state: APP.state
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
@@ -517,6 +651,13 @@
         favorites = new Set(Array.isArray(data.favorites)?data.favorites:[]);
         saveSet(LS_KEYS.cleared, cleared);
         saveSet(LS_KEYS.favorites, favorites);
+        // 이전 버전(v2 이하) 백업에는 customGames/deletedIds가 없을 수 있으므로
+        // 없으면 각각 빈 값으로 처리한다.
+        customGames = Array.isArray(data.customGames) ? data.customGames : [];
+        deletedIds = new Set(Array.isArray(data.deletedIds) ? data.deletedIds : []);
+        saveCustomGames(customGames);
+        saveDeletedIds(deletedIds);
+        refreshGames();
         if(data.state && typeof data.state === 'object'){
           APP.state = Object.assign({}, APP.state, data.state);
           saveState();
@@ -562,6 +703,81 @@
     if(pcRestoreFile) pcRestoreFile.addEventListener('change', e=>{
       if(e.target.files[0]) importBackup(e.target.files[0]);
       e.target.value = '';
+    });
+  }
+
+  /* ---------------------------------------------------------
+     12b. 게임 추가 모달 + 삭제 모드
+     --------------------------------------------------------- */
+  function fillCategorySelect(sel){
+    sel.innerHTML = CATEGORIES.map(c=>`<option value="${c.key}">${escapeHtml(c.label)}</option>`).join('');
+  }
+
+  function afterGamesChanged(){
+    renderSummary();
+    renderList();
+    renderPcGrid(document.getElementById('pcSearchInput') ? document.getElementById('pcSearchInput').value : '');
+  }
+
+  function initAddGameModal(){
+    const overlay = document.getElementById('addGameOverlay');
+    const titleInput = document.getElementById('addGameTitle');
+    const catSelect = document.getElementById('addGameCategory');
+    const numberInput = document.getElementById('addGameNumber');
+    const errorEl = document.getElementById('addGameError');
+    const btnSubmit = document.getElementById('addGameSubmit');
+    const btnCancel = document.getElementById('addGameCancel');
+    if(!overlay) return;
+
+    fillCategorySelect(catSelect);
+    // 현재 목록 화면에서 보고 있는 카테고리가 있으면 기본값으로 미리 선택
+    if(APP.state.category && CAT_MAP[APP.state.category]){
+      catSelect.value = APP.state.category;
+    }
+
+    function open(){
+      errorEl.textContent = '';
+      titleInput.value = '';
+      numberInput.value = '';
+      if(APP.state.category && CAT_MAP[APP.state.category]){
+        catSelect.value = APP.state.category;
+      }
+      overlay.classList.add('open');
+      setTimeout(()=> titleInput.focus(), 50);
+    }
+    function close(){
+      overlay.classList.remove('open');
+    }
+    function submit(){
+      const result = addGame({
+        title: titleInput.value,
+        category: catSelect.value,
+        number: numberInput.value.trim()
+      });
+      if(!result.ok){
+        errorEl.textContent = '게임명을 입력해주세요.';
+        titleInput.focus();
+        return;
+      }
+      close();
+      afterGamesChanged();
+    }
+
+    ['btnAddGame','btnAddGameFab','pcBtnAddGame'].forEach(id=>{
+      const btn = document.getElementById(id);
+      if(btn) btn.addEventListener('click', open);
+    });
+    btnCancel.addEventListener('click', close);
+    overlay.addEventListener('click', (e)=>{ if(e.target === overlay) close(); });
+    btnSubmit.addEventListener('click', submit);
+    titleInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') submit(); });
+    numberInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') submit(); });
+  }
+
+  function initDeleteModeToggle(){
+    ['btnDeleteMode','pcBtnDeleteMode'].forEach(id=>{
+      const btn = document.getElementById(id);
+      if(btn) btn.addEventListener('click', ()=> setDeleteMode(!deleteMode));
     });
   }
 
@@ -646,6 +862,8 @@
     initPcControls();
     initPcRowActions();
     initDataControls();
+    initAddGameModal();
+    initDeleteModeToggle();
     initScrollTop();
     initScrollMemory();
     initInstall();

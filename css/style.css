@@ -332,12 +332,15 @@ main{
 }
 .row.cleared .title{color:var(--text-faint); font-weight:500;}
 .row .cat-dot{width:7px;height:7px;border-radius:50%;flex:none;}
-.star-btn, .check-btn{
+.star-btn, .check-btn, .row-del{
   flex:none;
   width:40px;height:40px;
   display:flex;align-items:center;justify-content:center;
   background:none;border:none;
 }
+.row-del{display:none; color:var(--danger);}
+.row-del svg{width:19px;height:19px;}
+#app.delete-mode .row-del{display:flex;}
 .star-btn svg{width:20px;height:20px; color:var(--border-strong);}
 .star-btn.active svg{color:var(--star);}
 .check-circle{
@@ -375,6 +378,8 @@ main{
 }
 .pill-btn:active{background:var(--accent-soft);}
 .pill-btn.danger{color:var(--danger); background:var(--danger-soft);}
+.pill-btn.active{background:var(--danger); color:#2a0d0d;}
+.pill-btn.primary{background:var(--accent); color:var(--on-accent);}
 
 /* =========================================================
    Icon button active state (즐겨찾기 토글 / 설정 토글)
@@ -394,6 +399,7 @@ main{
 }
 .settings-panel.open{display:block;}
 .settings-panel .label{font-size:12.5px; color:var(--text-faint); margin-bottom:11px; font-weight:700;}
+.settings-panel .label:not(:first-child){margin-top:16px;}
 .settings-panel .actions{display:flex; gap:8px; flex-wrap:wrap;}
 
 /* back-to-top */
@@ -412,6 +418,92 @@ main{
   z-index:45;
 }
 .top-btn.show{display:flex;}
+
+/* 게임 추가 플로팅 버튼 */
+.fab-add{
+  position:fixed;
+  left:18px;
+  bottom:calc(var(--safe-bottom) + 16px);
+  width:52px;height:52px;
+  border-radius:50%;
+  background:var(--accent);
+  color:var(--on-accent);
+  border:none;
+  display:flex;
+  align-items:center;justify-content:center;
+  box-shadow:0 8px 20px rgba(0,0,0,.35);
+  z-index:45;
+}
+.fab-add:active{transform:scale(.92);}
+
+/* =========================================================
+   게임 추가 모달
+   ========================================================= */
+.modal-overlay{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.55);
+  z-index:80;
+  align-items:flex-end;
+  justify-content:center;
+}
+.modal-overlay.open{display:flex;}
+.modal-card{
+  width:100%;
+  max-width:480px;
+  background:var(--surface);
+  border-radius:20px 20px 0 0;
+  padding:22px 20px calc(var(--safe-bottom) + 22px);
+  box-shadow:0 -10px 30px rgba(0,0,0,.4);
+}
+.modal-card h3{
+  margin:0 0 16px;
+  font-size:17px;
+  font-weight:800;
+  color:var(--text);
+}
+.modal-field{margin-bottom:14px;}
+.modal-field label{
+  display:block;
+  font-size:12.5px;
+  font-weight:700;
+  color:var(--text-faint);
+  margin-bottom:6px;
+}
+.modal-field input,
+.modal-field select{
+  width:100%;
+  box-sizing:border-box;
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:12px 13px;
+  font-size:15px;
+  font-weight:600;
+  color:var(--text);
+}
+.modal-field input:focus,
+.modal-field select:focus{border-color:var(--accent); outline:none;}
+.modal-field select{appearance:none;}
+.modal-error{
+  color:var(--danger);
+  font-size:13px;
+  font-weight:700;
+  min-height:18px;
+  margin-bottom:6px;
+}
+.modal-actions{
+  display:flex;
+  gap:10px;
+  margin-top:6px;
+}
+.modal-actions .pill-btn{flex:1; padding:13px; text-align:center; font-size:14.5px;}
+
+@media (min-width:701px){
+  .modal-overlay{align-items:center;}
+  .modal-card{border-radius:20px; max-width:420px;}
+}
 
 /* =========================================================
    Desktop (PC) layout
@@ -523,6 +615,8 @@ main{
     color:var(--border-strong);
   }
   .pc-row button.star.active{color:var(--star);}
+  .pc-row button.del{display:none; color:var(--danger);}
+  #app.delete-mode .pc-row button.del{display:flex;}
   .pc-row button.chk{
     color:var(--on-accent);
     position:relative;

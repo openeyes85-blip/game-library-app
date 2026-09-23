@@ -58,6 +58,11 @@
       </div>
     </div>
     <div class="settings-panel" id="settingsPanel">
+      <div class="label">게임 관리</div>
+      <div class="actions">
+        <button class="pill-btn" id="btnAddGame">+ 게임 추가</button>
+        <button class="pill-btn" id="btnDeleteMode">삭제 모드</button>
+      </div>
       <div class="label">데이터 관리</div>
       <div class="actions">
         <button class="pill-btn" id="btnBackup">백업 (JSON 내보내기)</button>
@@ -78,6 +83,8 @@
         <input id="pcSearchInput" type="text" placeholder="게임명 검색">
       </div>
       <div class="pc-actions">
+        <button class="pill-btn" id="pcBtnAddGame">+ 게임 추가</button>
+        <button class="pill-btn" id="pcBtnDeleteMode">삭제 모드</button>
         <button class="pill-btn" id="pcBtnFav">즐겨찾기만</button>
         <button class="pill-btn" id="pcBtnSort">번호순</button>
         <button class="pill-btn" id="pcBtnBackup">백업</button>
@@ -120,6 +127,34 @@
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
   </button>
 
+  <button class="fab-add mobile-only" id="btnAddGameFab" aria-label="게임 추가">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+
+</div>
+
+<!-- ============ 게임 추가 모달 ============ -->
+<div class="modal-overlay" id="addGameOverlay">
+  <div class="modal-card">
+    <h3>게임 추가</h3>
+    <div class="modal-field">
+      <label for="addGameTitle">게임명</label>
+      <input type="text" id="addGameTitle" placeholder="게임 제목을 입력하세요" autocomplete="off">
+    </div>
+    <div class="modal-field">
+      <label for="addGameCategory">카테고리</label>
+      <select id="addGameCategory"></select>
+    </div>
+    <div class="modal-field">
+      <label for="addGameNumber">번호 (선택 사항)</label>
+      <input type="text" inputmode="numeric" id="addGameNumber" placeholder="비워두면 번호 없이 추가됩니다" autocomplete="off">
+    </div>
+    <div class="modal-error" id="addGameError"></div>
+    <div class="modal-actions">
+      <button class="pill-btn" id="addGameCancel">취소</button>
+      <button class="pill-btn primary" id="addGameSubmit">추가</button>
+    </div>
+  </div>
 </div>
 
 <input type="file" id="pcRestoreFile" accept="application/json" class="visually-hidden">
