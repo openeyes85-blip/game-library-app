@@ -169,6 +169,29 @@
     }
   }
 
+  // 삭제로 비어버린 번호 자리를 메우기 위해, 같은 카테고리 안에서 삭제된
+  // 게임보다 번호가 컸던 게임들을 모두 1씩 당겨온다(shiftNumbersFrom의 반대).
+  // GAMES는 이미 삭제가 반영된(refreshGames 이후의) 최신 상태여야 한다.
+  function shiftNumbersDownAfter(category, deletedNumber){
+    const customById = new Map(customGames.map(g=>[g.id, g]));
+    let changed = false;
+    GAMES.forEach(g=>{
+      if(g.category !== category) return;
+      if(g.number == null || g.number <= deletedNumber) return;
+      const newNumber = g.number - 1;
+      if(customById.has(g.id)){
+        customById.get(g.id).number = newNumber;
+      }else{
+        numberOverrides[g.id] = newNumber;
+      }
+      changed = true;
+    });
+    if(changed){
+      saveCustomGames(customGames);
+      saveNumberOverrides(numberOverrides);
+    }
+  }
+
   // 게임 추가: 사용자가 입력한 제목/카테고리/번호로 새 게임을 만들어
   // customGames에 저장한다. (원본 GAMES_BASE는 절대 건드리지 않음)
   // 번호를 지정하면, 같은 카테고리에서 그 번호 이상이던 기존 게임들은
@@ -201,7 +224,13 @@
   // 게임 삭제: 사용자가 추가한 게임이면 목록에서 완전히 제거하고,
   // 원본(GAMES_BASE) 게임이면 deletedIds에 넣어 화면에서만 숨긴다.
   // (원본 데이터 자체는 바뀌지 않으므로 나중에 복원 가능)
+  // 삭제 후에는 같은 카테고리에서 그보다 뒤 번호였던 게임들을 모두 하나씩
+  // 당겨와 번호 사이에 빈 자리가 생기지 않도록 한다.
   function deleteGame(id){
+    const target = GAMES.find(g=>g.id===id);
+    const category = target ? target.category : null;
+    const deletedNumber = target ? target.number : null;
+
     const wasCustom = customGames.some(g=>g.id===id);
     if(wasCustom){
       customGames = customGames.filter(g=>g.id!==id);
@@ -219,6 +248,11 @@
     saveSet(LS_KEYS.cleared, cleared);
     saveSet(LS_KEYS.favorites, favorites);
     refreshGames();
+
+    if(category && deletedNumber != null){
+      shiftNumbersDownAfter(category, deletedNumber);
+      refreshGames();
+    }
   }
 
   function isCleared(id){ return cleared.has(id); }
