@@ -194,8 +194,11 @@
 
   // 게임 추가: 사용자가 입력한 제목/카테고리/번호로 새 게임을 만들어
   // customGames에 저장한다. (원본 GAMES_BASE는 절대 건드리지 않음)
-  // 번호를 지정하면, 같은 카테고리에서 그 번호 이상이던 기존 게임들은
-  // 모두 번호가 하나씩 뒤로 밀린다(자리를 만들어 끼워넣는 방식).
+  // 번호를 지정했을 때:
+  //  - 그 번호를 이미 다른 게임이 쓰고 있으면(겹치면) -> 그 번호부터 뒤 게임들을
+  //    전부 하나씩 밀어서 자리를 만들고, 새 게임이 그 번호에 들어간다.
+  //  - 그 번호가 비어 있으면(아무도 안 쓰고 있으면) -> 그냥 그 번호로 그대로
+  //    들어간다. 다른 게임들의 번호는 전혀 건드리지 않는다.
   function addGame({ title, category, number }){
     const cleanTitle = String(title || '').trim();
     if(!cleanTitle) return { ok:false, reason:'title' };
@@ -211,7 +214,10 @@
     }
 
     if(num != null){
-      shiftNumbersFrom(category, num);
+      const isOccupied = GAMES.some(g => g.category === category && g.number === num);
+      if(isOccupied){
+        shiftNumbersFrom(category, num);
+      }
     }
 
     const game = { id, number: num, title: cleanTitle, category, d0: false, custom: true };
