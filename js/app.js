@@ -192,6 +192,42 @@
     }
   }
 
+  // 번호 순서 자동 정리: 카테고리별로 번호가 있는 게임들을 현재 번호 순서대로
+  // 줄 세운 뒤, 중간에 빈 자리나 겹치는 번호가 있어도 신경 쓰지 않고 1번부터
+  // 다시 차례로 매긴다. 순서(누가 몇 번째인지)는 그대로 유지되고, 번호값만
+  // 빈틈없이 맞춰진다. 번호가 원래 없던 게임(number: null)은 건드리지 않는다.
+  // 수동으로 실행하는 기능이라, "빈 번호에 추가하면 그대로 들어간다"는
+  // 기능과는 충돌하지 않는다(자동으로는 실행되지 않음).
+  function normalizeNumbering(){
+    const byCategory = {};
+    GAMES.forEach(g=>{
+      if(g.number == null) return;
+      (byCategory[g.category] = byCategory[g.category] || []).push(g);
+    });
+    const customById = new Map(customGames.map(g=>[g.id, g]));
+    let changedCount = 0;
+    Object.keys(byCategory).forEach(catKey=>{
+      const list = byCategory[catKey].slice().sort((a,b)=> a.number - b.number);
+      list.forEach((g, idx)=>{
+        const expected = idx + 1;
+        if(g.number !== expected){
+          if(customById.has(g.id)){
+            customById.get(g.id).number = expected;
+          }else{
+            numberOverrides[g.id] = expected;
+          }
+          changedCount++;
+        }
+      });
+    });
+    if(changedCount > 0){
+      saveCustomGames(customGames);
+      saveNumberOverrides(numberOverrides);
+      refreshGames();
+    }
+    return changedCount;
+  }
+
   // 게임 추가: 사용자가 입력한 제목/카테고리/번호로 새 게임을 만들어
   // customGames에 저장한다. (원본 GAMES_BASE는 절대 건드리지 않음)
   // 번호를 지정했을 때:
@@ -876,6 +912,19 @@
     });
   }
 
+  function initFixNumbering(){
+    ['btnFixNumbering','pcBtnFixNumbering'].forEach(id=>{
+      const btn = document.getElementById(id);
+      if(!btn) return;
+      btn.addEventListener('click', ()=>{
+        if(!confirm('각 카테고리 안에서 번호 순서(현재 순서)는 그대로 두고,\n비어있거나 겹치는 번호만 1번부터 빈틈없이 다시 매길까요?')) return;
+        const changed = normalizeNumbering();
+        afterGamesChanged();
+        alert(changed > 0 ? `${changed}개 게임의 번호를 정리했습니다.` : '이미 번호가 순서대로 되어 있어요.');
+      });
+    });
+  }
+
   /* ---------------------------------------------------------
      13. 스크롤 위치 기억 + 맨 위로 버튼
      --------------------------------------------------------- */
@@ -959,6 +1008,7 @@
     initDataControls();
     initAddGameModal();
     initDeleteModeToggle();
+    initFixNumbering();
     initScrollTop();
     initScrollMemory();
     initInstall();
