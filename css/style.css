@@ -671,7 +671,10 @@ main{
     flex:none;
     overflow:hidden;
   }
-  .pc-row button.star.active{color:var(--star);}
+  /* 전체 목록을 한눈에 보는 화면에서는 즐겨찾기별/엔딩 체크 표시를 없애서
+     그만큼 제목에 쓸 공간과 글자 크기를 더 확보한다. (삭제 모드의 삭제
+     버튼은 필요하므로 그대로 둔다) */
+  .pc-row button.star, .pc-row button.chk{display:none;}
   .pc-row button.del{display:none; color:var(--danger);}
   #app.delete-mode .pc-row button.del{display:flex;}
   .pc-row button.chk{
