@@ -676,14 +676,35 @@
     if(!anyVisible){
       grid.innerHTML = '<div class="pc-empty">해당하는 게임이 없습니다</div>';
     }else{
+      fitPcPanelFontSizes();
       fitPcRowTitles();
     }
+  }
+
+  // 각 박스(.pc-panel) 안의 줄 높이는 CSS flex가 칸 수만큼 자동으로 똑같이
+  // 나눠서 정해준다(스크롤 없이 항상 박스 안에 꽉 채워짐). 대신 그 줄
+  // 높이에 맞는 글자 크기는 여기서 실제 렌더링된 줄 높이를 측정해서
+  // 정해준다 - 줄이 많은(칸이 많은) 카테고리는 글자가 자동으로 작아지고,
+  // 줄이 적은 카테고리는 자동으로 커진다.
+  const PC_PANEL_FONT_MIN = 7;   // px
+  const PC_PANEL_FONT_MAX = 13;  // px
+  function fitPcPanelFontSizes(){
+    document.querySelectorAll('#pcGrid .pc-panel').forEach(panel=>{
+      panel.style.fontSize = '';
+      const body = panel.querySelector('.pc-panel-body');
+      const rowCount = body.children.length;
+      if(!rowCount) return;
+      const rowH = body.clientHeight / rowCount;
+      if(rowH <= 0) return;
+      const fs = Math.max(PC_PANEL_FONT_MIN, Math.min(PC_PANEL_FONT_MAX, rowH * 0.5));
+      panel.style.fontSize = fs + 'px';
+    });
   }
 
   // 제목이 한 줄 폭보다 길면 잘라내는 대신, 그 줄만 글자 크기를 줄여서
   // 한 줄 안에 들어오게 만든다(말줄임표 없이). 이렇게 하면 실제 칸과 공란
   // 칸의 높이가 항상 똑같이 맞아떨어진다.
-  const PC_TITLE_MIN_FONT = 9; // px, 이보다 더 작아지지는 않는다
+  const PC_TITLE_MIN_FONT = 7; // px, 이보다 더 작아지지는 않는다
   function fitPcRowTitles(){
     const titles = document.querySelectorAll('#pcGrid .pc-row:not(.blank) .t');
     titles.forEach(t=>{

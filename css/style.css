@@ -523,6 +523,13 @@ main{
   .mobile-only{display:none !important;}
   .desktop-only{display:block;}
 
+  /* 가로(전체 목록) 화면은 페이지 자체가 스크롤되지 않고 뷰포트 높이
+     안에 전부 들어가야 한다. #app을 뷰포트 높이에 정확히 고정하고,
+     헤더를 제외한 나머지 공간을 #pc-content가 전부 차지하게 한다. */
+  html, body{height:100%; overflow:hidden;}
+  #app{height:100vh; min-height:0; overflow:hidden;}
+  main{flex:1; min-height:0; display:flex; flex-direction:column; padding-bottom:0; overflow:hidden;}
+
   .pc-header{
     position:sticky; top:0; z-index:40;
     background:rgba(14,33,23,.92);
@@ -564,26 +571,32 @@ main{
     width:100%;
     max-width:1800px;
     margin:0 auto;
-    display:block;
+    flex:1;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
   }
 
   .pc-toolbar{
-    display:flex; align-items:center; gap:8px;
-    margin:10px auto 0;
-    padding:0 28px 10px;
+    display:none;
   }
 
   .pc-grid{
     display:grid;
-    /* 박스 16개(카테고리 14개 + Switch2 분할 2개)가 8개씩 2줄로 맞춰지도록
-       고정 8칸 그리드로 배치한다. 화면이 좁아지면 각 칸이 최소폭까지만
-       줄어들고, 그 아래로는 가로 스크롤이 생긴다. */
-    grid-template-columns:repeat(8, minmax(196px, 1fr));
-    gap:14px;
-    max-width:1800px;
+    /* 박스 16개(카테고리 14개 + Switch2 분할 2개)를 8개씩 2줄로 맞추고,
+       가로/세로 모두 남는 공간이나 스크롤 없이 화면 전체를 정확히
+       채운다. 칸 폭은 항상 1fr이라 창 크기를 줄여도 오른쪽에 빈 공간이
+       생기지 않는다 (대신 글자는 JS가 칸 크기에 맞춰 줄여준다). */
+    grid-template-columns:repeat(8, 1fr);
+    grid-template-rows:repeat(2, 1fr);
+    gap:12px;
+    width:100%;
+    flex:1;
+    min-height:0;
     margin:0 auto;
-    padding:18px 28px 40px;
-    overflow-x:auto;
+    padding:14px 20px 16px;
+    overflow:hidden;
   }
   .pc-panel{
     background:var(--surface);
@@ -592,49 +605,54 @@ main{
     display:flex;
     flex-direction:column;
     border:1px solid var(--border);
-    align-self:start;
     width:100%;
-    /* 칸 수(슬롯 수)가 같은 카테고리끼리는 실제 내용 높이만큼 자연스럽게
-       늘어난다 (강제 비율 없음). 안에서 따로 스크롤되지 않고 모든 줄이
-       한 번에 다 보이도록 한다. */
+    height:100%;
+    min-height:0;
   }
   .pc-panel-head{
-    padding:12px 13px;
+    padding:6px 10px;
     background:var(--cat-color, var(--accent));
     display:flex; align-items:baseline; justify-content:space-between;
     flex:none;
   }
-  .pc-panel-head .name{font-size:13px; font-weight:800; color:#fff;}
-  .pc-panel-head .count{font-size:11.5px; color:rgba(255,255,255,.8); font-variant-numeric:tabular-nums; font-weight:700;}
+  .pc-panel-head .name{font-size:12px; font-weight:800; color:#fff;}
+  .pc-panel-head .count{font-size:10.5px; color:rgba(255,255,255,.8); font-variant-numeric:tabular-nums; font-weight:700;}
   .pc-panel-body{
     flex:1;
     min-height:0;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
   }
   .pc-row{
     display:flex; align-items:center;
     border-bottom:1px solid var(--border);
     font-size:13px;
-    /* 실제 줄과 공란 줄의 높이를 똑같이 고정한다. (공란 줄은 버튼이 없어서
-       그 크기에 기대면 실제 줄보다 훨씬 얇아지므로, 여기서 직접 높이를 정한다) */
-    min-height:35px;
+    /* 고정 높이를 쓰지 않고, 박스 안의 칸(슬롯) 수만큼 flex로 똑같이
+       나눠 가진다. 그래서 칸이 많은 카테고리는 줄이 자동으로 낮아지고,
+       칸이 적은 카테고리는 줄이 자동으로 높아져서 항상 박스 안에
+       스크롤 없이 꽉 채워진다. */
+    flex:1 1 0;
+    min-height:0;
     box-sizing:border-box;
+    overflow:hidden;
   }
   .pc-row:last-child{border-bottom:none;}
   .pc-row .no{
-    flex:none; width:26px; text-align:center;
+    flex:none; width:2em; text-align:center;
     align-self:stretch;
     display:flex; align-items:center; justify-content:center;
     color:var(--text-faint);
     font-variant-numeric:tabular-nums;
-    font-size:11px;
+    font-size:0.85em;
     font-weight:700;
   }
   .pc-row .t{
     flex:1; min-width:0;
-    padding:8px 6px;
+    padding:0 6px;
     color:var(--text);
     font-weight:600;
-    line-height:1.35;
+    line-height:1.2;
     /* 항상 한 줄로 보여준다 - 안 맞으면 자바스크립트(fitPcRowTitles)가
        글자 크기를 줄여서 맞춘다. 이름을 자르지 않기 위해 말줄임표는 쓰지 않는다. */
     white-space:nowrap;
@@ -647,10 +665,11 @@ main{
     gap:1px;
   }
   .pc-row button{
-    width:22px;height:100%; min-height:34px; border:none; background:none;
+    width:1.4em;height:100%; border:none; background:none;
     display:flex;align-items:center;justify-content:center;
     color:var(--border-strong);
     flex:none;
+    overflow:hidden;
   }
   .pc-row button.star.active{color:var(--star);}
   .pc-row button.del{display:none; color:var(--danger);}
@@ -662,7 +681,7 @@ main{
   .pc-row button.chk::before{
     content:"";
     position:absolute;
-    width:15px;height:15px;
+    width:1.15em;height:1.15em;
     border-radius:50%;
     border:1.6px solid var(--border-strong);
     background:transparent;
@@ -671,7 +690,7 @@ main{
     background:var(--accent);
     border-color:var(--accent);
   }
-  .pc-row button svg{width:14px;height:14px; position:relative; z-index:1;}
+  .pc-row button svg{width:1.05em;height:1.05em; position:relative; z-index:1;}
   /* 표준 칸 수를 채우기 위한 빈 줄(공란) - 번호/제목/아이콘 없이 자리만 차지 */
   .pc-row.blank{background:rgba(255,255,255,.015);}
   .pc-row.blank .no, .pc-row.blank .t, .pc-row.blank .actions{visibility:hidden;}
