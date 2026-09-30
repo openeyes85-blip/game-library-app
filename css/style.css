@@ -531,7 +531,7 @@ main{
     padding:16px 28px;
   }
   .pc-header-row{
-    display:flex; align-items:center; gap:20px; max-width:1440px; margin:0 auto;
+    display:flex; align-items:center; gap:20px; max-width:1800px; margin:0 auto;
   }
   .pc-title{
     font-size:20px; font-weight:900; letter-spacing:-0.02em; margin:0;
@@ -541,6 +541,8 @@ main{
     font-size:14px; font-weight:600; color:var(--text-dim);
     display:flex; gap:12px; align-items:center;
     font-variant-numeric:tabular-nums;
+    white-space:nowrap;
+    flex:none;
   }
   .pc-search{
     margin-left:auto;
@@ -560,17 +562,21 @@ main{
 
   .pc-toolbar{
     display:flex; align-items:center; gap:8px;
-    max-width:1440px; margin:10px auto 0;
+    max-width:1800px; margin:10px auto 0;
     padding:0 28px 10px;
   }
 
   .pc-grid{
     display:grid;
-    grid-template-columns:repeat(8, 1fr);
+    /* 박스 16개(카테고리 14개 + Switch2 분할 2개)가 8개씩 2줄로 맞춰지도록
+       고정 8칸 그리드로 배치한다. 화면이 좁아지면 각 칸이 최소폭까지만
+       줄어들고, 그 아래로는 가로 스크롤이 생긴다. */
+    grid-template-columns:repeat(8, minmax(196px, 1fr));
     gap:14px;
-    max-width:1440px;
+    max-width:1800px;
     margin:0 auto;
     padding:18px 28px 40px;
+    overflow-x:auto;
   }
   .pc-panel{
     background:var(--surface);
@@ -578,8 +584,10 @@ main{
     overflow:hidden;
     display:flex;
     flex-direction:column;
-    max-height:70vh;
+    /* 카테고리 안에서 따로 스크롤하지 않고, 전체 목록이 한 번에 다 보이도록
+       칸 높이를 게임 수에 맞춰 그대로 늘어나게 둔다 (페이지 전체만 스크롤). */
     border:1px solid var(--border);
+    align-self:start;
   }
   .pc-panel-head{
     padding:12px 13px;
@@ -590,18 +598,22 @@ main{
   .pc-panel-head .name{font-size:13px; font-weight:800; color:#fff;}
   .pc-panel-head .count{font-size:11.5px; color:rgba(255,255,255,.8); font-variant-numeric:tabular-nums; font-weight:700;}
   .pc-panel-body{
-    overflow-y:auto;
     flex:1;
   }
   .pc-row{
     display:flex; align-items:center;
     border-bottom:1px solid var(--border);
     font-size:13px;
+    /* 실제 줄과 공란 줄의 높이를 똑같이 고정한다. (공란 줄은 버튼이 없어서
+       그 크기에 기대면 실제 줄보다 훨씬 얇아지므로, 여기서 직접 높이를 정한다) */
+    min-height:35px;
+    box-sizing:border-box;
   }
   .pc-row:last-child{border-bottom:none;}
   .pc-row .no{
-    flex:none; width:30px; text-align:center;
-    padding:8px 0;
+    flex:none; width:26px; text-align:center;
+    align-self:stretch;
+    display:flex; align-items:center; justify-content:center;
     color:var(--text-faint);
     font-variant-numeric:tabular-nums;
     font-size:11px;
@@ -612,14 +624,23 @@ main{
     padding:8px 6px;
     color:var(--text);
     font-weight:600;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    line-height:1.35;
+    /* 항상 한 줄로 보여준다 - 안 맞으면 자바스크립트(fitPcRowTitles)가
+       글자 크기를 줄여서 맞춘다. 이름을 자르지 않기 위해 말줄임표는 쓰지 않는다. */
+    white-space:nowrap;
+    overflow:hidden;
   }
   .pc-row.cleared .t{color:var(--text-faint); font-weight:500;}
-  .pc-row .actions{display:flex; flex:none; align-items:center;}
+  .pc-row .actions{
+    display:flex; flex:none; align-items:center;
+    align-self:stretch;
+    gap:1px;
+  }
   .pc-row button{
-    width:26px;height:26px; border:none; background:none;
+    width:22px;height:100%; min-height:34px; border:none; background:none;
     display:flex;align-items:center;justify-content:center;
     color:var(--border-strong);
+    flex:none;
   }
   .pc-row button.star.active{color:var(--star);}
   .pc-row button.del{display:none; color:var(--danger);}
@@ -641,6 +662,9 @@ main{
     border-color:var(--accent);
   }
   .pc-row button svg{width:14px;height:14px; position:relative; z-index:1;}
+  /* 표준 칸 수를 채우기 위한 빈 줄(공란) - 번호/제목/아이콘 없이 자리만 차지 */
+  .pc-row.blank{background:rgba(255,255,255,.015);}
+  .pc-row.blank .no, .pc-row.blank .t, .pc-row.blank .actions{visibility:hidden;}
 
   .pc-empty{
     grid-column:1 / -1;

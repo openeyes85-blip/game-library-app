@@ -574,11 +574,70 @@
   /* ---------------------------------------------------------
      7. 데스크톱(PC) 그리드
      --------------------------------------------------------- */
+  // 기본(검색/즐겨찾기 필터 없이, 번호순으로 보는) 화면에서 모든 카테고리 박스를
+  // 같은 크기로 맞추기 위한 표준 칸 수. Switch2는 게임이 훨씬 많아서 32칸짜리
+  // 박스 2개(총 64칸)로 나누고, 나머지 카테고리는 36칸 박스 1개로 통일한다.
+  const PC_PANEL_SIZE_DEFAULT = 36;
+  const PC_S2_CHUNK_SIZE = 32;
+
+  function buildPcRowHTML(g){
+    const done = isCleared(g.id);
+    const fav = isFav(g.id);
+    return `<div class="pc-row ${done?'cleared':''}" data-id="${g.id}">
+      <div class="no">${g.number!=null?g.number:''}</div>
+      <div class="t" title="${escapeHtml(g.title)}">${escapeHtml(g.title)}</div>
+      <div class="actions">
+        <button class="del" data-action="delete" aria-label="삭제">${TRASH_SVG}</button>
+        <button class="star ${fav?'active':''}" data-action="fav">${fav?STAR_SVG:STAR_OUTLINE_SVG}</button>
+        <button class="chk" data-action="check">${done?CHECK_SVG.replace('#0b1f14','currentColor'):''}</button>
+      </div>
+    </div>`;
+  }
+
+  function buildPcBlankRowHTML(){
+    return `<div class="pc-row blank">
+      <div class="no"></div>
+      <div class="t"></div>
+      <div class="actions"></div>
+    </div>`;
+  }
+
+  // 카테고리 하나를 몇 개의 박스로 나눌지, 각 박스를 몇 칸으로 채울지 계산한다.
+  // list는 이미 정렬된 상태여야 한다. 표준 칸 수보다 게임이 적으면 남는 칸은
+  // 빈 줄(공란)로 채우고, 더 많으면(미래에 게임이 늘어나는 경우) 칸 수를
+  // 늘려서 실제 데이터가 잘리지 않게 한다.
+  function buildPanelsForCategory(cat, list){
+    if(cat.key === 's2'){
+      const chunkSize = PC_S2_CHUNK_SIZE;
+      const chunkCount = Math.max(2, Math.ceil(list.length / chunkSize));
+      const chunks = [];
+      for(let i=0;i<chunkCount;i++){
+        chunks.push(list.slice(i*chunkSize, (i+1)*chunkSize));
+      }
+      return chunks.map((items, idx)=>({
+        label: `${cat.label} ${idx+1}`,
+        color: cat.color,
+        items,
+        slots: chunkSize
+      }));
+    }
+    return [{
+      label: cat.label,
+      color: cat.color,
+      items: list,
+      slots: Math.max(PC_PANEL_SIZE_DEFAULT, list.length)
+    }];
+  }
+
   function renderPcGrid(query){
     const grid = document.getElementById('pcGrid');
     const q = (query||'').trim().toLowerCase();
     grid.innerHTML = '';
     let anyVisible = false;
+
+    // 검색어나 즐겨찾기만 보기, 가나다순 정렬 중이면 결과 개수가 매번 달라지므로
+    // 고정 칸 수/공란 채우기는 적용하지 않고 실제 결과만 보여준다.
+    const useFixedPanels = !q && !APP.state.pcFavOnly && (APP.state.pcSort || 'number') === 'number';
 
     CATEGORIES.forEach(cat=>{
       let list = GAMES.filter(g=>g.category===cat.key);
@@ -592,34 +651,59 @@
       if((q || APP.state.pcFavOnly) && list.length===0) return; // 필터 중엔 결과 없는 패널 숨김
       anyVisible = true;
 
-      const c = counts(GAMES.filter(g=>g.category===cat.key));
-      const panel = el('div','pc-panel');
-      panel.innerHTML = `
-        <div class="pc-panel-head" style="--cat-color:${cat.color}">
-          <span class="name">${escapeHtml(cat.label)}</span>
-          <span class="count">${c.done}/${c.total}</span>
-        </div>
-        <div class="pc-panel-body"></div>`;
-      const body = panel.querySelector('.pc-panel-body');
-      body.innerHTML = list.map(g=>{
-        const done = isCleared(g.id);
-        const fav = isFav(g.id);
-        return `<div class="pc-row ${done?'cleared':''}" data-id="${g.id}">
-          <div class="no">${g.number!=null?g.number:''}</div>
-          <div class="t" title="${escapeHtml(g.title)}">${escapeHtml(g.title)}</div>
-          <div class="actions">
-            <button class="del" data-action="delete" aria-label="삭제">${TRASH_SVG}</button>
-            <button class="star ${fav?'active':''}" data-action="fav">${fav?STAR_SVG:STAR_OUTLINE_SVG}</button>
-            <button class="chk" data-action="check">${done?CHECK_SVG.replace('#0b1f14','currentColor'):''}</button>
+      const panels = useFixedPanels
+        ? buildPanelsForCategory(cat, list)
+        : [{ label: cat.label, color: cat.color, items: list, slots: list.length }];
+
+      panels.forEach(p=>{
+        const c = counts(p.items);
+        const panel = el('div','pc-panel');
+        panel.innerHTML = `
+          <div class="pc-panel-head" style="--cat-color:${p.color}">
+            <span class="name">${escapeHtml(p.label)}</span>
+            <span class="count">${c.done}/${c.total}</span>
           </div>
-        </div>`;
-      }).join('');
-      grid.appendChild(panel);
+          <div class="pc-panel-body"></div>`;
+        const body = panel.querySelector('.pc-panel-body');
+        const rowsHtml = p.items.map(buildPcRowHTML);
+        const blankCount = Math.max(0, p.slots - p.items.length);
+        for(let i=0;i<blankCount;i++) rowsHtml.push(buildPcBlankRowHTML());
+        body.innerHTML = rowsHtml.join('');
+        grid.appendChild(panel);
+      });
     });
 
     if(!anyVisible){
       grid.innerHTML = '<div class="pc-empty">해당하는 게임이 없습니다</div>';
+    }else{
+      fitPcRowTitles();
     }
+  }
+
+  // 제목이 한 줄 폭보다 길면 잘라내는 대신, 그 줄만 글자 크기를 줄여서
+  // 한 줄 안에 들어오게 만든다(말줄임표 없이). 이렇게 하면 실제 칸과 공란
+  // 칸의 높이가 항상 똑같이 맞아떨어진다.
+  const PC_TITLE_MIN_FONT = 9; // px, 이보다 더 작아지지는 않는다
+  function fitPcRowTitles(){
+    const titles = document.querySelectorAll('#pcGrid .pc-row:not(.blank) .t');
+    titles.forEach(t=>{
+      t.style.fontSize = ''; // 기본 크기로 리셋 후 다시 측정
+      const available = t.clientWidth;
+      const needed = t.scrollWidth;
+      if(available <= 0 || needed <= available) return; // 이미 한 줄에 들어감
+
+      const baseFontSize = parseFloat(window.getComputedStyle(t).fontSize) || 13;
+      let newSize = Math.max(PC_TITLE_MIN_FONT, baseFontSize * (available / needed) * 0.97);
+      t.style.fontSize = newSize + 'px';
+
+      // 비율 계산이 살짝 안 맞는 경우를 대비해 미세 조정(최대 6단계)
+      let guard = 0;
+      while(t.scrollWidth > t.clientWidth && newSize > 6 && guard < 6){
+        newSize -= 0.5;
+        t.style.fontSize = newSize + 'px';
+        guard++;
+      }
+    });
   }
 
   function initPcRowActions(){
