@@ -1036,6 +1036,25 @@
   }
 
   /* ---------------------------------------------------------
+     13-1. 화면 방향(세로/가로) 전환 시 데스크톱 그리드 재계산
+     세로↔가로 전환은 모바일 목록 화면 ↔ 전체 목록 화면 전환을 의미하므로,
+     가로로 바뀔 때는 pc-grid의 글자 크기 자동 맞춤(fitPcRowTitles)이
+     실제로 보이는 크기 기준으로 다시 계산되도록 다시 렌더링해준다.
+     --------------------------------------------------------- */
+  function initOrientationRefresh(){
+    let resizeTimer = null;
+    window.addEventListener('resize', ()=>{
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(()=>{
+        const isLandscape = window.matchMedia('(orientation: landscape)').matches;
+        if(isLandscape){
+          renderPcGrid(document.getElementById('pcSearchInput') ? document.getElementById('pcSearchInput').value : '');
+        }
+      }, 200);
+    });
+  }
+
+  /* ---------------------------------------------------------
      14. 설치(PWA) / 전체화면
      --------------------------------------------------------- */
   let deferredPrompt = null;
@@ -1095,6 +1114,7 @@
     initFixNumbering();
     initScrollTop();
     initScrollMemory();
+    initOrientationRefresh();
     initInstall();
     initFullscreen();
 

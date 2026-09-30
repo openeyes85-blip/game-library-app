@@ -518,7 +518,7 @@ main{
 .desktop-only{display:none;}
 .mobile-only{display:block;}
 
-@media (min-width: 900px){
+@media (orientation: landscape){
   :root{ --appbar-h:0px; --bottomnav-h:0px; }
   .mobile-only{display:none !important;}
   .desktop-only{display:block;}
@@ -560,9 +560,21 @@ main{
   .pc-actions{display:flex; gap:8px; flex:none;}
   .pc-actions .pill-btn.active{background:var(--accent); color:var(--on-accent);}
 
+  /* "전체 리스트"를 보는 화면 전체 영역 - 가로:세로 = 4:3 비율의 화면 하나에
+     담기도록 만든다. 안의 내용(툴바+그리드)이 그 비율 안에 다 안 들어가면
+     이 영역 자체가 스스로 스크롤된다. */
+  #pc-content{
+    width:100%;
+    max-width:1800px;
+    aspect-ratio:4 / 3;
+    margin:0 auto;
+    overflow-y:auto;
+    display:block;
+  }
+
   .pc-toolbar{
     display:flex; align-items:center; gap:8px;
-    max-width:1800px; margin:10px auto 0;
+    margin:10px auto 0;
     padding:0 28px 10px;
   }
 
@@ -584,10 +596,13 @@ main{
     overflow:hidden;
     display:flex;
     flex-direction:column;
-    /* 카테고리 안에서 따로 스크롤하지 않고, 전체 목록이 한 번에 다 보이도록
-       칸 높이를 게임 수에 맞춰 그대로 늘어나게 둔다 (페이지 전체만 스크롤). */
     border:1px solid var(--border);
     align-self:start;
+    /* 박스 하나하나를 가로:세로 = 10:16 비율(세로가 긴 카드 모양)로 고정한다.
+       칸 수가 많은 카테고리는 이 비율 안에 다 안 들어갈 수 있으므로,
+       아래 .pc-panel-body가 그 안에서 따로 스크롤된다. */
+    width:100%;
+    aspect-ratio:10 / 16;
   }
   .pc-panel-head{
     padding:12px 13px;
@@ -599,6 +614,8 @@ main{
   .pc-panel-head .count{font-size:11.5px; color:rgba(255,255,255,.8); font-variant-numeric:tabular-nums; font-weight:700;}
   .pc-panel-body{
     flex:1;
+    min-height:0;
+    overflow-y:auto;
   }
   .pc-row{
     display:flex; align-items:center;
