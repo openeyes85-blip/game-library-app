@@ -627,7 +627,9 @@ main{
   .pc-row{
     display:flex; align-items:center;
     border-bottom:1px solid var(--border);
-    font-size:13px;
+    /* 글자 크기는 고정하지 않고 .pc-panel에 JS(fitPcPanelFontSizes)가
+       설정하는 값을 그대로 물려받는다 (줄 높이에 맞춰 계산됨). */
+    font-size:inherit;
     /* 고정 높이를 쓰지 않고, 박스 안의 칸(슬롯) 수만큼 flex로 똑같이
        나눠 가진다. 그래서 칸이 많은 카테고리는 줄이 자동으로 낮아지고,
        칸이 적은 카테고리는 줄이 자동으로 높아져서 항상 박스 안에

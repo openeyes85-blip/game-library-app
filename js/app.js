@@ -699,7 +699,7 @@
       // 줄 높이(rowH)에 줄간격(line-height 1.2)을 감안해 세로로 잘리지
       // 않는 한도 안에서 최대한 크게 잡는다(즐겨찾기/엔딩 체크가 없어진
       // 만큼 가로 공간도 넉넉해져서 글자를 더 키울 수 있다).
-      const fs = Math.max(PC_PANEL_FONT_MIN, Math.min(PC_PANEL_FONT_MAX, (rowH / 1.2) * 0.92));
+      const fs = Math.max(PC_PANEL_FONT_MIN, Math.min(PC_PANEL_FONT_MAX, (rowH / 1.2) * 0.8));
       panel.style.fontSize = fs + 'px';
     });
   }
